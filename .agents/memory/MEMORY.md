@@ -1,1 +1,2 @@
 - [نطاق Android الأصلي](android-source-only.md) — لا تنشئ بديلًا؛ حدّد مصدر Android الأصلي قبل أي تعديل.
+- [GitHub Actions logs](github-actions-logs.md) — fetch the short-lived log redirect immediately and without forwarding the GitHub credential.
