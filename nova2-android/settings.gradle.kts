@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Nova2Android"
+rootProject.name = "AnimeNovaAndroid"
 include(":app")

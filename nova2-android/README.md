@@ -1,11 +1,13 @@
-# Nova 2 Android
+# Anime NOVA Native Android
 
-هذا مشروع Android Native مستقل مبني وفق خطة Nova 2 في ملف
-`attached_assets/Nova_2_Replit_Prompt_1788089982887.pdf`.
+هذا مشروع Android Native مبني بـ Kotlin وJetpack Compose. المصدر المعتمد لملفات
+تطبيق Android هو `../src/data/kotlinCodebase.ts`، ويزامن GitHub Actions هذه
+الملفات إلى مشروع Gradle قبل بناء APK. مجلد `nova2-android` هو جذر البناء الحالي.
 
 ## حدود هذه المرحلة
 
-- هذا المسار مستقل عن Nova 1 وعن `artifacts/nova-mobile`.
+- هذا البناء يستخدم ملفات Kotlin المضمنة في كتالوج التطبيق، وليس واجهة React/Vite.
+- ملفات Kotlin المعتمدة تُزامن آليًا من `src/data/kotlinCodebase.ts` قبل البناء.
 - لم يتم نقل أو حذف أو تعديل أي ملف من Nova 1.
 - تم تجهيز أساس Kotlin + Jetpack Compose + Compose for TV + Media3.
 - طبقة الشبكة تستخدم عقود Nova الحقيقية المعروفة من
@@ -33,10 +35,11 @@
 
 ## GitHub Actions build
 
-`.github/workflows/build-nova2.yml` builds a debug APK when Nova 2 files change
-on `main`, and can also be started manually with `workflow_dispatch`. Download
-the APK from the completed workflow run's artifacts. This build does not require
-VPS SSH credentials and does not deploy or modify Nova 1.
+`.github/workflows/build-nova2.yml` materializes the embedded Kotlin sources and
+builds a debug APK when the Android source catalog or Gradle project changes on
+`main`; it can also be started manually with `workflow_dispatch`. Download the
+`anime-nova-debug-apk-*` artifact from the completed run. This does not deploy
+or modify Nova 1.
 
 الخادم الحالي يتعرف على هوية Nova 2 المستقلة. لا ينبغي تغيير هوية التطبيق
 لتطابق Nova 1 أو تجاوز بوابة الإصدار من داخل هذا المشروع.

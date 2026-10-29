@@ -56,8 +56,8 @@ class NovaApiClient(
     private val tokenMutex = Mutex()
 
     /**
-     * Load and verify a custom API URL persisted in settings.
-     * If /api/healthz fails or times out within 4 seconds, reverts to the default server URL.
+     * Load and verify a custom API URL persisted in settings (matches utils/baseUrl.ts).
+     * If /health fails or times out within 4 seconds, reverts to the default server URL.
      */
     suspend fun initializeRuntimeApiUrl(): String = withContext(Dispatchers.IO) {
         val saved = tokenStore.readCustomApiUrl() ?: return@withContext NovaBuildConfig.identity.apiUrl
@@ -99,7 +99,7 @@ class NovaApiClient(
             .build()
         return runCatching {
             val req = Request.Builder()
-                .url("${baseUrl.trimEnd('/')}/api/healthz")
+                .url("${baseUrl.trimEnd('/')}/health")
                 .get()
                 .build()
             probeClient.newCall(req).execute().use { it.isSuccessful }

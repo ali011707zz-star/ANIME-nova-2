@@ -89,9 +89,11 @@ export const KotlinCodeExporter: React.FC<KotlinCodeExporterProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white">
-                  {isAr ? 'كود Anime NOVA الأصلي — Kotlin & Android Native (20 ملفًا)' : 'Anime NOVA Original — Kotlin & Android Native (20 Files)'}
-                </h2>
+                  <h2 className="text-base font-bold text-white">
+                    {isAr
+                      ? `كود Anime NOVA الأصلي — Kotlin & Android Native (${KOTLIN_ANDROID_PROJECT.length} ملفًا)`
+                      : `Anime NOVA Original — Kotlin & Android Native (${KOTLIN_ANDROID_PROJECT.length} Files)`}
+                  </h2>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[11px] font-bold text-emerald-400">
                   Jetpack Compose + Media3 + TV
                 </span>
