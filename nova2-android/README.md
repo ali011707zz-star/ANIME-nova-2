@@ -29,10 +29,17 @@
 
 - Application ID: `com.nova.anime.nova2`
 - Client ID: `nova2-android`
-- Version: `0.1.0`
+- Version: `1.0.0`
 
-بوابة الإصدار في الخادم تحتاج اعتماد هوية Nova 2 لاحقًا. لا ينبغي ادعاء هوية
-Nova 1 أو تجاوز بوابة الإصدار من داخل هذا المشروع.
+## GitHub Actions build
+
+`.github/workflows/build-nova2.yml` builds a debug APK when Nova 2 files change
+on `main`, and can also be started manually with `workflow_dispatch`. Download
+the APK from the completed workflow run's artifacts. This build does not require
+VPS SSH credentials and does not deploy or modify Nova 1.
+
+الخادم الحالي يتعرف على هوية Nova 2 المستقلة. لا ينبغي تغيير هوية التطبيق
+لتطابق Nova 1 أو تجاوز بوابة الإصدار من داخل هذا المشروع.
 
 ## ما تم تأسيسه
 
@@ -55,10 +62,9 @@ app/src/main/java/com/nova/anime/nova2/
 
 هذه ليست فجوات يمكن حلها بأمان من داخل الكود المحلي:
 
-1. بناء APK والتحقق منه على GitHub CI.
+1. تشغيل GitHub Actions والتحقق من أول APK ناتج؛ أُضيف workflow البناء للمستودع.
 2. تثبيت نسخة تجريبية على جهاز Android وهاتف/جهاز TV فعلي.
-3. نشر نسخة الخادم التي تحتوي allowlist هوية
-   `com.nova.anime.nova2` و`nova2-android` في release gate على الـVPS.
+3. اختبار تدفقات التطبيق المحمية من APK فعلي والتأكد من استجابات API الإنتاجية.
 4. تأكيد استجابات API الإنتاجية بعد أي schema drift.
 5. تحديد عقد تنزيل HLS وPlay Integrity النهائيين قبل دعم تنزيل HLS أو
    المصادقة القوية على الإصدار النهائي.
