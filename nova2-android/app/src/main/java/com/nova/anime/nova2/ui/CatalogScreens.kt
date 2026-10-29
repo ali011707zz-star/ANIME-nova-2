@@ -39,18 +39,22 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +78,7 @@ import com.nova.anime.nova2.core.catalog.StardimaEpisodeEntry
 import com.nova.anime.nova2.core.catalog.StardimaServerEntry
 import com.nova.anime.nova2.core.catalog.StardimaTitleCard
 import com.nova.anime.nova2.core.catalog.WatchContentKind
+import com.nova.anime.nova2.core.library.HistoryEntry
 import com.nova.anime.nova2.core.library.LibraryStore
 import com.nova.anime.nova2.core.model.CommentDto
 import com.nova.anime.nova2.core.model.CreateCommentRequest
@@ -83,18 +88,25 @@ import com.nova.anime.nova2.core.playback.PlaybackRepository
 import com.nova.anime.nova2.core.playback.PlaybackSource
 import com.nova.anime.nova2.core.playback.PlaybackType
 import com.nova.anime.nova2.core.playback.PlayerMetadata
+import com.nova.anime.nova2.core.session.SessionViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
     repository: AnilistRepository,
+    libraryStore: LibraryStore,
     onOpenDetails: (Int) -> Unit,
     onOpenEpisodes: (Int) -> Unit,
     onOpenWatch: (Int, Int) -> Unit,
+    onOpenLatestEpisodes: () -> Unit,
+    onOpenSeasons: () -> Unit,
+    onOpenComingSoon: () -> Unit,
+    onOpenTvLink: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenDubbed: () -> Unit,
+    onOpenDownloads: () -> Unit,
     onOpenAnimations: () -> Unit,
     onOpenManga: () -> Unit,
     onOpenStardima: () -> Unit,
@@ -106,6 +118,7 @@ fun HomeScreen(
     var catalog by remember { mutableStateOf<HomeCatalog?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var tvExitPending by remember { mutableStateOf(false) }
+    val history by libraryStore.history.collectAsState()
     val context = LocalContext.current
     val layout = rememberNovaLayout()
 
@@ -143,6 +156,11 @@ fun HomeScreen(
                     drawerScope.launch { drawerState.close() }
                     when (destination) {
                         "بحث" -> onOpenSearch()
+                        "أحدث الحلقات" -> onOpenLatestEpisodes()
+                        "المواسم" -> onOpenSeasons()
+                        "قريبًا" -> onOpenComingSoon()
+                        "ربط التلفاز" -> onOpenTvLink()
+                        "تنزيلاتي" -> onOpenDownloads()
                         "تصفح" -> onOpenBrowse()
                         "المانجا" -> onOpenManga()
                         "مدبلج" -> onOpenDubbed()
@@ -164,18 +182,36 @@ fun HomeScreen(
                     contentPadding = PaddingValues(bottom = if (layout.isTv) 20.dp else 12.dp),
                 ) {
                     item {
-                        NovaHeader(onMenu = { drawerScope.launch { drawerState.open() } })
+                        NovaHeader(
+                            onMenu = { drawerScope.launch { drawerState.open() } },
+                            onSearch = onOpenSearch,
+                        )
                     }
                     when {
                         error != null -> item { ErrorBlock(error!!) }
                         catalog == null -> item { LoadingBlock() }
                         else -> {
-                            catalog!!.popular.firstOrNull()?.let { hero ->
+                            catalog!!.trending.take(6).ifEmpty { catalog!!.popular.take(6) }
+                                .takeIf { it.isNotEmpty() }?.let { heroItems ->
                                 item {
                                     NovaHero(
-                                        anime = hero,
-                                        onDetails = { onOpenDetails(hero.id) },
-                                        onEpisodes = { onOpenEpisodes(hero.id) },
+                                        items = heroItems,
+                                        onDetails = onOpenDetails,
+                                        onEpisodes = onOpenEpisodes,
+                                    )
+                                }
+                            }
+                            val resumableHistory = history.filter {
+                                it.contentKind == WatchContentKind.ANIME.wireName
+                            }
+                            if (resumableHistory.isNotEmpty()) {
+                                item {
+                                    ContinueWatchingRail(
+                                        history = resumableHistory,
+                                        onResume = { entry ->
+                                            onOpenWatch(entry.animeId, entry.episode)
+                                        },
+                                        onOpenLibrary = onOpenLibrary,
                                     )
                                 }
                             }
@@ -184,6 +220,7 @@ fun HomeScreen(
                                     LatestEpisodesRail(
                                         episodes = catalog!!.latestEpisodes,
                                         onOpenWatch = onOpenWatch,
+                                        onOpenAll = onOpenLatestEpisodes,
                                     )
                                 }
                             }
@@ -204,7 +241,8 @@ fun HomeScreen(
                         "بحث" -> onOpenSearch()
                         "تصفح" -> onOpenBrowse()
                         "مدبلج" -> onOpenDubbed()
-                        "مكتبتي", "تنزيلاتي" -> onOpenLibrary()
+                        "تنزيلاتي" -> onOpenDownloads()
+                        "مكتبتي", "قائمتي" -> onOpenLibrary()
                     }
                 }
             }
@@ -232,14 +270,23 @@ fun HomeScreen(
 private fun LatestEpisodesRail(
     episodes: List<LatestEpisodeCard>,
     onOpenWatch: (Int, Int) -> Unit,
+    onOpenAll: () -> Unit,
 ) {
     val layout = rememberNovaLayout()
     Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
-        Text(
-            text = "أحدث الحلقات المضافة",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(horizontal = layout.horizontalPadding),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = layout.horizontalPadding),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("أحدث الحلقات", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "عرض الكل",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.clickable(onClick = onOpenAll).padding(8.dp),
+            )
+        }
         LazyRow(
             contentPadding = PaddingValues(horizontal = layout.horizontalPadding, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -275,6 +322,547 @@ private fun LatestEpisodesRail(
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingRail(
+    history: List<HistoryEntry>,
+    onResume: (HistoryEntry) -> Unit,
+    onOpenLibrary: () -> Unit,
+) {
+    val layout = rememberNovaLayout()
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = layout.horizontalPadding),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text("متابعة المشاهدة", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "أكمل حلقاتك من حيث توقفت",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            Text(
+                text = "السجل الكامل",
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.clickable(onClick = onOpenLibrary).padding(8.dp),
+            )
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = layout.horizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(
+                items = history,
+                key = { "${it.animeId}-${it.episode}-${it.season}" },
+            ) { entry ->
+                val progress = if (entry.durationMs > 0L) {
+                    ((entry.positionMs * 100L) / entry.durationMs).toInt().coerceIn(0, 100)
+                } else {
+                    45
+                }
+                val remainingMinutes = if (entry.durationMs > 0L) {
+                    ((entry.durationMs - entry.positionMs).coerceAtLeast(0L) / 60_000L)
+                        .toInt().coerceAtLeast(1)
+                } else {
+                    13
+                }
+                Card(
+                    modifier = Modifier
+                        .width(if (layout.isTv) 200.dp else 168.dp)
+                        .clickable { onResume(entry) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(if (layout.isTv) 116.dp else 92.dp)
+                                .background(Color(0xFF0B0F17)),
+                        ) {
+                            entry.coverUrl?.let { cover ->
+                                AsyncImage(
+                                    model = cover,
+                                    contentDescription = entry.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp)
+                                    .align(Alignment.BottomCenter)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(Color.Transparent, Color.Black.copy(alpha = .88f)),
+                                        ),
+                                    ),
+                            )
+                            Surface(
+                                color = Color.Black.copy(alpha = .84f),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                            ) {
+                                Text(
+                                    "الحلقة ${entry.episode}",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                )
+                            }
+                            Surface(
+                                color = Color.Black.copy(alpha = .78f),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                            ) {
+                                Text(
+                                    "متبقي $remainingMinutes د",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                )
+                            }
+                            Text(
+                                text = entry.title,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    "استئناف المشاهدة الآن",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    "$progress%",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(Color.White.copy(alpha = .12f)),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(progress / 100f)
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(Color(0xFF0EA5E9)),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LatestEpisodesScreen(
+    repository: AnilistRepository,
+    onOpenDetails: (Int) -> Unit,
+    onOpenWatch: (Int, Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    var episodes by remember { mutableStateOf<List<LatestEpisodeCard>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { repository.loadHome().latestEpisodes }
+            .onSuccess { episodes = it }
+            .onFailure { error = it.message ?: "تعذر تحميل أحدث الحلقات" }
+        loading = false
+    }
+
+    CatalogScaffold(title = "أحدث الحلقات", onBack = onBack) {
+        when {
+            loading -> item { LoadingBlock() }
+            error != null -> item { ErrorBlock(error!!) }
+            episodes.isEmpty() -> item {
+                Text(
+                    "لا توجد حلقات مضافة حاليًا",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            else -> items(
+                items = episodes,
+                key = { "${it.anilistId}-${it.episode}-${it.sourceSite}" },
+            ) { episode ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        AsyncImage(
+                            model = episode.coverUrl,
+                            contentDescription = episode.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .width(82.dp)
+                                .height(112.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onOpenDetails(episode.anilistId) },
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                episode.arabicTitle ?: episode.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                "الحلقة ${episode.episode} · ${episode.sourceSite}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = {
+                                    onOpenWatch(episode.anilistId, episode.episode)
+                                }) {
+                                    Text("مشاهدة")
+                                }
+                                OutlinedButton(onClick = {
+                                    onOpenDetails(episode.anilistId)
+                                }) {
+                                    Text("التفاصيل")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class AnimeSeasonPeriod(
+    val code: String,
+    val year: Int,
+)
+
+private val ANIME_SEASONS = listOf("WINTER", "SPRING", "SUMMER", "FALL")
+
+private fun currentAnimeSeason(): AnimeSeasonPeriod {
+    val calendar = java.util.Calendar.getInstance()
+    val month = calendar.get(java.util.Calendar.MONTH)
+    val code = when (month) {
+        in 0..2 -> "WINTER"
+        in 3..5 -> "SPRING"
+        in 6..8 -> "SUMMER"
+        else -> "FALL"
+    }
+    return AnimeSeasonPeriod(code, calendar.get(java.util.Calendar.YEAR))
+}
+
+private fun shiftAnimeSeason(period: AnimeSeasonPeriod, offset: Int): AnimeSeasonPeriod {
+    val shiftedIndex = ANIME_SEASONS.indexOf(period.code) + offset
+    val yearOffset = Math.floorDiv(shiftedIndex, ANIME_SEASONS.size)
+    val seasonIndex = Math.floorMod(shiftedIndex, ANIME_SEASONS.size)
+    return AnimeSeasonPeriod(ANIME_SEASONS[seasonIndex], period.year + yearOffset)
+}
+
+private fun String.toArabicSeason(): String = when (this) {
+    "WINTER" -> "الشتاء"
+    "SPRING" -> "الربيع"
+    "SUMMER" -> "الصيف"
+    "FALL" -> "الخريف"
+    else -> this
+}
+
+@Composable
+fun SeasonsScreen(
+    repository: AnilistRepository,
+    onOpenDetails: (Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    val current = remember { currentAnimeSeason() }
+    val tabs = listOf("جميع المواسم", "الموسم القادم", "الموسم الحالي", "الموسم السابق")
+    var selectedTab by remember { mutableStateOf("الموسم الحالي") }
+    var selectedSeason by remember { mutableStateOf(current.code) }
+    var searchQuery by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<AnimeCard>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(selectedTab, selectedSeason, searchQuery) {
+        delay(250L)
+        loading = true
+        error = null
+        val period = when (selectedTab) {
+            "الموسم القادم" -> shiftAnimeSeason(current, 1)
+            "الموسم السابق" -> shiftAnimeSeason(current, -1)
+            "جميع المواسم" -> AnimeSeasonPeriod(selectedSeason, current.year)
+            else -> current
+        }
+        val filters = BrowseFilters(
+            search = searchQuery.trim().takeIf { it.isNotEmpty() },
+            sort = "POPULARITY_DESC",
+            season = if (selectedTab == "جميع المواسم") selectedSeason else period.code,
+            year = period.year,
+        )
+        runCatching { repository.browse(filters, 1) }
+            .onSuccess { results = it }
+            .onFailure { error = it.message ?: "تعذر تحميل قائمة المواسم" }
+        loading = false
+    }
+
+    CatalogScaffold(title = "المواسم", onBack = onBack) {
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("ابحث في المواسم") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(tabs) { tab ->
+                    FilterChip(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        label = { Text(tab) },
+                    )
+                }
+            }
+        }
+        if (selectedTab == "جميع المواسم") {
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(ANIME_SEASONS) { season ->
+                        FilterChip(
+                            selected = selectedSeason == season,
+                            onClick = { selectedSeason = season },
+                            label = { Text("${season.toArabicSeason()} ${current.year}") },
+                        )
+                    }
+                }
+            }
+        } else {
+            val period = when (selectedTab) {
+                "الموسم القادم" -> shiftAnimeSeason(current, 1)
+                "الموسم السابق" -> shiftAnimeSeason(current, -1)
+                else -> current
+            }
+            item {
+                Text(
+                    "${period.code.toArabicSeason()} ${period.year}",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+        if (loading && results.isEmpty()) item { LoadingBlock() }
+        error?.let { item { ErrorBlock(it) } }
+        if (!loading && error == null && results.isEmpty()) {
+            item {
+                Text(
+                    "لا توجد أعمال لهذا الموسم",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (results.isNotEmpty()) item { NovaAnimeGrid(results, onOpenDetails) }
+    }
+}
+
+@Composable
+fun ComingSoonScreen(
+    repository: AnilistRepository,
+    onOpenDetails: (Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<AnimeCard>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(query) {
+        delay(250L)
+        loading = true
+        error = null
+        page = 1
+        runCatching {
+            repository.browse(
+                BrowseFilters(
+                    search = query.trim().takeIf { it.isNotEmpty() },
+                    sort = "POPULARITY_DESC",
+                    status = "NOT_YET_RELEASED",
+                ),
+                1,
+            )
+        }.onSuccess { results = it }
+            .onFailure { error = it.message ?: "تعذر تحميل الأعمال القادمة" }
+        loading = false
+    }
+
+    CatalogScaffold(title = "قريبًا", onBack = onBack) {
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("ابحث عن عمل قادم") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        if (loading && results.isEmpty()) item { LoadingBlock() }
+        error?.let { item { ErrorBlock(it) } }
+        if (!loading && error == null && results.isEmpty()) {
+            item {
+                Text(
+                    "لا توجد أعمال قادمة مطابقة",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (results.isNotEmpty()) {
+            item { NovaAnimeGrid(results, onOpenDetails) }
+            if (results.size >= 30) {
+                item {
+                    Button(
+                        enabled = !loadingMore,
+                        onClick = {
+                            scope.launch {
+                                loadingMore = true
+                                val nextPage = page + 1
+                                runCatching {
+                                    repository.browse(
+                                        BrowseFilters(
+                                            search = query.trim().takeIf { it.isNotEmpty() },
+                                            sort = "POPULARITY_DESC",
+                                            status = "NOT_YET_RELEASED",
+                                        ),
+                                        nextPage,
+                                    )
+                                }.onSuccess {
+                                    results = (results + it).distinctBy(AnimeCard::id)
+                                    page = nextPage
+                                }.onFailure {
+                                    error = it.message ?: "تعذر تحميل المزيد"
+                                }
+                                loadingMore = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    ) {
+                        Text(if (loadingMore) "جارٍ التحميل…" else "تحميل المزيد")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TvLinkScreen(
+    sessionViewModel: SessionViewModel,
+    onBack: () -> Unit,
+) {
+    val state by sessionViewModel.state.collectAsState()
+    var code by rememberSaveable { mutableStateOf("") }
+
+    CatalogScaffold(title = "ربط التلفاز", onBack = onBack) {
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "اربط شاشة Android TV بحسابك",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    "أدخل رمز الربط المكوّن من 6 أرقام الظاهر على شاشة التلفاز.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (state.user == null) {
+                    Text(
+                        "سجّل الدخول إلى حسابك أولًا، ثم أعد فتح صفحة ربط التلفاز.",
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { value ->
+                            code = value.filter(Char::isDigit).take(6)
+                        },
+                        label = { Text("رمز الربط") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Button(
+                        enabled = code.length == 6 && !state.authLoading,
+                        onClick = { sessionViewModel.claimTvLinkCode(code) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (state.authLoading) "جارٍ الربط…" else "ربط التلفاز")
+                    }
+                }
+                state.notice?.let { notice ->
+                    Text(notice, color = MaterialTheme.colorScheme.secondary)
+                }
+                state.error?.let { error ->
+                    Text(error, color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -427,6 +1015,7 @@ fun DetailsScreen(
     libraryStore: LibraryStore,
     onOpenDetails: (Int) -> Unit = {},
     onOpenEpisodes: (Int) -> Unit,
+    onOpenComments: (Int) -> Unit = {},
     onBack: () -> Unit,
 ) {
     var details by remember(id) { mutableStateOf<AnimeDetails?>(null) }
@@ -611,7 +1200,16 @@ fun DetailsScreen(
                 // Comments Section (/api/comments)
                 item {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("التعليقات (${comments.size})", style = MaterialTheme.typography.titleLarge)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("التعليقات (${comments.size})", style = MaterialTheme.typography.titleLarge)
+                            TextButton(onClick = { onOpenComments(id) }) {
+                                Text("عرض الكل")
+                            }
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -661,6 +1259,109 @@ fun DetailsScreen(
                             }
                             Text(comment.text, modifier = Modifier.padding(top = 4.dp))
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommentsScreen(
+    repository: AnilistRepository,
+    animeId: Int,
+    onBack: () -> Unit,
+) {
+    var comments by remember(animeId) { mutableStateOf<List<CommentDto>>(emptyList()) }
+    var message by rememberSaveable(animeId) { mutableStateOf("") }
+    var loading by remember(animeId) { mutableStateOf(true) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember(animeId) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(animeId) {
+        runCatching { repository.loadComments(animeId = animeId) }
+            .onSuccess { comments = it }
+            .onFailure { error = it.message ?: "تعذر تحميل التعليقات" }
+        loading = false
+    }
+
+    CatalogScaffold(title = "التعليقات", onBack = onBack) {
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text("شارك رأيك حول هذا العمل", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = { message = it },
+                    label = { Text("اكتب تعليقك") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 6,
+                )
+                Button(
+                    enabled = message.isNotBlank() && !submitting,
+                    onClick = {
+                        val text = message.trim()
+                        submitting = true
+                        error = null
+                        scope.launch {
+                            val posted = runCatching {
+                                repository.createComment(
+                                    CreateCommentRequest(animeId = animeId, text = text),
+                                )
+                            }.getOrElse {
+                                error = it.message ?: "تعذر نشر التعليق"
+                                false
+                            }
+                            if (posted) {
+                                message = ""
+                                runCatching { repository.loadComments(animeId = animeId) }
+                                    .onSuccess { comments = it }
+                                    .onFailure { error = it.message ?: "تم النشر لكن تعذر تحديث القائمة" }
+                            } else if (error == null) {
+                                error = "تعذر نشر التعليق"
+                            }
+                            submitting = false
+                        }
+                    },
+                ) {
+                    Text(if (submitting) "جارٍ النشر…" else "نشر التعليق")
+                }
+            }
+        }
+        error?.let { item { ErrorBlock(it) } }
+        if (loading) {
+            item { LoadingBlock() }
+        } else if (comments.isEmpty()) {
+            item {
+                Text(
+                    "لا توجد تعليقات بعد",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            items(comments, key = { it.id }) { comment ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(comment.username, fontWeight = FontWeight.Bold)
+                            Text("♥ ${comment.likes}", color = MaterialTheme.colorScheme.primary)
+                        }
+                        Text(comment.text)
                     }
                 }
             }

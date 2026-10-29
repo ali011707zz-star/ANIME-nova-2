@@ -36,12 +36,18 @@ fun NovaNavGraph(
         composable("home") {
             HomeScreen(
                 repository = repository,
+                libraryStore = libraryStore,
                 onOpenDetails = { navController.navigate("details/$it") },
                 onOpenEpisodes = { navController.navigate("episodes/$it") },
                 onOpenWatch = { animeId, episode -> navController.navigate("watch/$animeId/$episode") },
+                onOpenLatestEpisodes = { navController.navigate("latest-episodes") },
+                onOpenSeasons = { navController.navigate("seasons") },
+                onOpenComingSoon = { navController.navigate("coming-soon") },
+                onOpenTvLink = { navController.navigate("tv-link") },
                 onOpenBrowse = { navController.navigate("browse") },
                 onOpenSearch = { navController.navigate("search") },
                 onOpenDubbed = { navController.navigate("dubbed") },
+                onOpenDownloads = { navController.navigate("library/downloads") },
                 onOpenAnimations = { navController.navigate("animations") },
                 onOpenManga = { navController.navigate("manga") },
                 onOpenStardima = { navController.navigate("stardima") },
@@ -49,6 +55,46 @@ fun NovaNavGraph(
                 onOpenNews = { navController.navigate("news") },
                 onOpenLibrary = { navController.navigate("library") },
                 onOpenSettings = { navController.navigate("settings") },
+            )
+        }
+        composable("latest-episodes") {
+            LatestEpisodesScreen(
+                repository = repository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onOpenWatch = { animeId, episode ->
+                    navController.navigate("watch/$animeId/$episode")
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("seasons") {
+            SeasonsScreen(
+                repository = repository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("coming-soon") {
+            ComingSoonScreen(
+                repository = repository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("tv-link") {
+            TvLinkScreen(
+                sessionViewModel = sessionViewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "comments/{id}",
+            arguments = listOf(navArgument("id") { type = NavType.IntType }),
+        ) { entry ->
+            CommentsScreen(
+                repository = repository,
+                animeId = entry.arguments?.getInt("id") ?: return@composable,
+                onBack = { navController.popBackStack() },
             )
         }
         composable("browse") {
@@ -113,6 +159,7 @@ fun NovaNavGraph(
                 libraryStore = libraryStore,
                 onOpenDetails = { navController.navigate("details/$it") },
                 onOpenEpisodes = { navController.navigate("episodes/$it") },
+                onOpenComments = { navController.navigate("comments/$it") },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -157,6 +204,18 @@ fun NovaNavGraph(
             LibraryScreen(
                 libraryStore = libraryStore,
                 downloadRepository = downloadRepository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onOpenWatch = { animeId, episode ->
+                    navController.navigate("watch/$animeId/$episode")
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("library/downloads") {
+            LibraryScreen(
+                libraryStore = libraryStore,
+                downloadRepository = downloadRepository,
+                initialTab = "DOWNLOADS",
                 onOpenDetails = { navController.navigate("details/$it") },
                 onOpenWatch = { animeId, episode ->
                     navController.navigate("watch/$animeId/$episode")

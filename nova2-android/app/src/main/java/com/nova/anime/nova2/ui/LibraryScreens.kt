@@ -67,11 +67,14 @@ private enum class LibraryTab(val title: String) {
 fun LibraryScreen(
     libraryStore: LibraryStore,
     downloadRepository: DownloadRepository,
+    initialTab: String = LibraryTab.FAVORITES.name,
     onOpenDetails: (Int) -> Unit,
     onOpenWatch: (Int, Int) -> Unit,
     onBack: () -> Unit,
 ) {
-    var tab by remember { mutableStateOf(LibraryTab.FAVORITES) }
+    var tab by rememberSaveable(initialTab) {
+        mutableStateOf(LibraryTab.entries.firstOrNull { it.name == initialTab } ?: LibraryTab.FAVORITES)
+    }
     val favorites by libraryStore.favorites.collectAsState()
     val history by libraryStore.history.collectAsState()
     val downloads by libraryStore.downloads.collectAsState()

@@ -50,7 +50,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.nova.anime.nova2.core.catalog.AnimeCard
+import kotlinx.coroutines.delay
 
 val LocalNovaWidthClass = staticCompositionLocalOf { WindowWidthSizeClass.Compact }
 
@@ -117,6 +120,7 @@ fun NovaHeader(
     title: String? = null,
     onMenu: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
 ) {
     val layout = rememberNovaLayout()
     Row(
@@ -146,7 +150,38 @@ fun NovaHeader(
                 }
             }
         }
-        onMenu?.let { NovaIconButton(Icons.Default.Menu, "القائمة", it) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            onSearch?.let { search ->
+                Surface(
+                    shape = RoundedCornerShape(11.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    modifier = Modifier.clickable(onClick = search),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "بحث",
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "بحث...",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                }
+            }
+            onMenu?.let { NovaIconButton(Icons.Default.Menu, "القائمة", it) }
+        }
     }
 }
 
@@ -159,6 +194,9 @@ fun NovaDrawerContent(
         NovaNavItem("الرئيسية", Icons.Default.Home),
         NovaNavItem("تصفح", Icons.Default.GridView),
         NovaNavItem("بحث", Icons.Default.Search),
+        NovaNavItem("أحدث الحلقات", Icons.Default.PlayArrow),
+        NovaNavItem("المواسم", Icons.Default.CalendarMonth),
+        NovaNavItem("قريبًا", Icons.Default.Star),
         NovaNavItem("المانجا", Icons.Default.MenuBook),
         NovaNavItem("مدبلج", Icons.Default.Tv),
         NovaNavItem("أنيميشن", Icons.Default.Movie),
@@ -167,6 +205,8 @@ fun NovaDrawerContent(
         NovaNavItem("الأخبار", Icons.Default.Newspaper),
         NovaNavItem("مكتبتي", Icons.Default.Bookmark),
         NovaNavItem("الإعدادات", Icons.Outlined.Settings),
+        NovaNavItem("ربط التلفاز", Icons.Default.Tv),
+        NovaNavItem("تنزيلاتي", Icons.Outlined.Download),
     )
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -231,68 +271,95 @@ fun NovaBottomNavigation(
     onSelect: (String) -> Unit,
 ) {
     val layout = rememberNovaLayout()
-    // Match artifacts/nova-mobile/app/(tabs)/_layout.tsx:
-    // Phone shows 6 tabs (including Search); TV hides Search tab from bottom bar
-    val items = buildList {
-        add(NovaNavItem("الرئيسية", Icons.Default.Home))
-        if (!layout.isTv) add(NovaNavItem("بحث", Icons.Default.Search))
-        add(NovaNavItem("تصفح", Icons.Default.GridView))
-        add(NovaNavItem("مدبلج", Icons.Default.Tv))
-        add(NovaNavItem("تنزيلاتي", Icons.Outlined.Download))
-        add(NovaNavItem("مكتبتي", Icons.Default.Bookmark))
-    }
+    val items = listOf(
+        NovaNavItem("الرئيسية", Icons.Default.Home),
+        NovaNavItem("تصفح", Icons.Default.GridView),
+        NovaNavItem("مدبلج", Icons.Default.Tv),
+        NovaNavItem("تنزيلاتي", Icons.Outlined.Download),
+        NovaNavItem("قائمتي", Icons.Default.Bookmark),
+    )
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = .98f),
-        tonalElevation = 8.dp,
-        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xF20D111A),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = .14f)),
+        shadowElevation = 10.dp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = layout.horizontalPadding / 2, vertical = if (layout.isTv) 10.dp else 6.dp),
+                .height(if (layout.isTv) 88.dp else 66.dp)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { item ->
                 val active = item.label == selected
-                NovaNavButton(item, active, layout.isTv) { onSelect(item.label) }
+                NovaNavButton(
+                    item = item,
+                    active = active,
+                    tv = layout.isTv,
+                    modifier = Modifier.weight(1f),
+                ) { onSelect(item.label) }
             }
         }
     }
 }
 
 @Composable
-private fun NovaNavButton(item: NovaNavItem, active: Boolean, tv: Boolean, onClick: () -> Unit) {
+private fun NovaNavButton(
+    item: NovaNavItem,
+    active: Boolean,
+    tv: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(
-                when {
-                    focused && tv -> Color(0x526D28D9)
-                    active -> MaterialTheme.colorScheme.primary.copy(alpha = .20f)
-                    else -> Color.Transparent
-                },
-            )
-            .then(
-                if (focused && tv) Modifier.border(BorderStroke(2.dp, Color(0xFFC4B5FD)), RoundedCornerShape(14.dp))
-                else Modifier,
-            )
+            .then(modifier)
+            .fillMaxHeight()
             .onFocusChanged { focused = it.isFocused }
             .focusable()
             .clickable(onClick = onClick)
-            .padding(horizontal = if (tv) 20.dp else 12.dp, vertical = if (tv) 10.dp else 6.dp),
+            .weight(1f)
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Icon(
-            item.icon,
-            contentDescription = item.label,
-            tint = if (active || focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(if (tv) 26.dp else 20.dp),
+        Box(
+            modifier = Modifier
+                .width(20.dp)
+                .height(3.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(if (active || (focused && tv)) Color.White else Color.Transparent),
         )
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (active || (focused && tv)) Color.White.copy(alpha = .14f) else Color.Transparent,
+            border = if (active || (focused && tv)) {
+                BorderStroke(1.dp, Color.White.copy(alpha = .28f))
+            } else {
+                null
+            },
+            modifier = Modifier
+                .width(if (tv) 52.dp else 44.dp)
+                .height(if (tv) 36.dp else 30.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    item.icon,
+                    contentDescription = item.label,
+                    tint = if (active || focused) Color.White else Color(0xFF94A3B8),
+                    modifier = Modifier.size(if (tv) 23.dp else 19.dp),
+                )
+            }
+        }
         Text(
             item.label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (active || focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = if (tv) 14.sp else 10.5.sp,
+            fontWeight = if (active || focused) FontWeight.Black else FontWeight.Bold,
+            color = if (active || focused) Color.White else Color(0xFF94A3B8),
         )
     }
 }
@@ -430,11 +497,20 @@ fun NovaAnimeGrid(
 
 @Composable
 fun NovaHero(
-    anime: AnimeCard,
-    onDetails: () -> Unit,
-    onEpisodes: () -> Unit,
+    items: List<AnimeCard>,
+    onDetails: (Int) -> Unit,
+    onEpisodes: (Int) -> Unit,
 ) {
     val layout = rememberNovaLayout()
+    if (items.isEmpty()) return
+    var currentIndex by remember(items) { mutableIntStateOf(0) }
+    LaunchedEffect(items.size, currentIndex) {
+        if (items.size > 1) {
+            delay(5_000L)
+            currentIndex = (currentIndex + 1) % items.size
+        }
+    }
+    val anime = items[currentIndex.coerceIn(items.indices)]
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -478,17 +554,40 @@ fun NovaHero(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = onEpisodes,
+                    onClick = { onEpisodes(anime.id) },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
                     Icon(Icons.Default.PlayArrow, "مشاهدة", modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(5.dp))
                     Text("مشاهدة")
                 }
-                OutlinedButton(onClick = onDetails, border = BorderStroke(1.dp, Color.White.copy(alpha = .7f))) {
+                OutlinedButton(
+                    onClick = { onDetails(anime.id) },
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = .7f)),
+                ) {
                     Icon(Icons.Outlined.Info, "تفاصيل", modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(5.dp))
                     Text("تفاصيل")
+                }
+            }
+            if (items.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items.indices.forEach { index ->
+                        Box(
+                            modifier = Modifier
+                                .width(if (index == currentIndex) 18.dp else 6.dp)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    if (index == currentIndex) Color.White
+                                    else Color.White.copy(alpha = .48f),
+                                )
+                                .clickable { currentIndex = index },
+                        )
+                    }
                 }
             }
         }
