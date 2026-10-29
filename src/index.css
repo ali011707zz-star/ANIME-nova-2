@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Cairo', 'KacstOne', 'KacstOffice', 'DejaVu Sans', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  img, a {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+}
+
+/* Hide scrollbars while preserving smooth scroll chaining */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Vertical page scrollers: smooth native touch & wheel momentum with zero visible scrollbar line */
+html,
+body,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Smooth native momentum scrolling with hidden scrollbar line on the left */
+.nova-ep-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.nova-ep-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Horizontal rails: never trap vertical scroll or vertical touch swipes */
+.overflow-x-auto {
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+}
+
+/* Episode row: clean layout with crisp dividers */
+.nova-ep-row {
+  position: relative;
+}
+
+/* Authentic Anime NOVA TV Focus Ring (1:1 from artifacts/nova-mobile/utils/tv.tsx tvFocusStyle) */
+body.nova-tv-mode button:focus,
+body.nova-tv-mode button:focus-visible,
+body.nova-tv-mode [data-tv-focusable="true"]:focus,
+body.nova-tv-mode [data-tv-focusable="true"]:focus-visible {
+  background-color: rgba(124, 58, 237, 0.12);
+  outline: 3px solid #6D28D9 !important;
+  outline-offset: 0px !important;
+  z-index: 20;
+}
+
+/* Native Stack Animations (GPU-accelerated 3D transforms, clears transform at 100%) */
+@keyframes novaSlideFromBottom {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes novaFadeFromBottom {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes novaSlideFromRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes novaFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.nova-anim-slide-bottom {
+  animation: novaSlideFromBottom 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.nova-anim-fade-bottom {
+  animation: novaFadeFromBottom 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.nova-anim-slide-right {
+  animation: novaSlideFromRight 170ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.nova-anim-fade {
+  animation: novaFade 150ms ease-out;
+  will-change: opacity;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 15, 18, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Anime NOVA - تطبيق الأنمي للهاتف والتلفاز الذكي (Android & Android TV)",
+  "description": "تطبيق أنمي متكامل بتصميم Anime NOVA الأصلي 1:1 للهاتف المحمول وشاشات التلفاز الذكي (Android TV) مع دعم تحكم الريموت D-Pad ومشغل احترافي بلغة Kotlin و Jetpack Compose",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
