@@ -331,7 +331,7 @@ class SessionViewModel(
                 in '۰'..'۹' -> ('0'.code + (ch.code - '۰'.code)).toChar()
                 else -> ch
             }
-        }.filter { it.isDigit() }.take(6)
+        }.filter { it.isDigit() }.take(6).joinToString(separator = "")
 
     private fun showError(message: String) {
         _state.update { it.copy(error = message, notice = null) }
