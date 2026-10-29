@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.PlayArrow
@@ -158,6 +159,7 @@ fun NovaDrawerContent(
         NovaNavItem("الرئيسية", Icons.Default.Home),
         NovaNavItem("تصفح", Icons.Default.GridView),
         NovaNavItem("بحث", Icons.Default.Search),
+        NovaNavItem("المانجا", Icons.Default.MenuBook),
         NovaNavItem("مدبلج", Icons.Default.Tv),
         NovaNavItem("أنيميشن", Icons.Default.Movie),
         NovaNavItem("ستارديما", Icons.Default.Star),

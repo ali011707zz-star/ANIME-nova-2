@@ -96,6 +96,7 @@ fun HomeScreen(
     onOpenSearch: () -> Unit,
     onOpenDubbed: () -> Unit,
     onOpenAnimations: () -> Unit,
+    onOpenManga: () -> Unit,
     onOpenStardima: () -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenNews: () -> Unit,
@@ -143,6 +144,7 @@ fun HomeScreen(
                     when (destination) {
                         "بحث" -> onOpenSearch()
                         "تصفح" -> onOpenBrowse()
+                        "المانجا" -> onOpenManga()
                         "مدبلج" -> onOpenDubbed()
                         "أنيميشن" -> onOpenAnimations()
                         "ستارديما" -> onOpenStardima()

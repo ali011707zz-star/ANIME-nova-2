@@ -117,6 +117,39 @@ class AnilistRepository(
         )
     }
 
+    suspend fun loadManga(
+        page: Int = 1,
+        search: String? = null,
+        status: String? = null,
+        countryOfOrigin: String? = null,
+    ): List<MangaCard> {
+        val normalizedSearch = search?.trim()?.takeIf { it.isNotEmpty() }
+        val resolvedSearch = normalizedSearch?.let { resolveSearchText(it) }
+        val variables = buildJsonObject {
+            put("page", page.coerceAtLeast(1))
+            put("perPage", 30)
+            put(
+                "sort",
+                JsonArray(
+                    listOf(
+                        JsonPrimitive(
+                            if (resolvedSearch == null) "POPULARITY_DESC" else "SEARCH_MATCH",
+                        ),
+                    ),
+                ),
+            )
+            resolvedSearch?.let { put("search", it) }
+            status?.let { put("status", it) }
+            countryOfOrigin?.let { put("countryOfOrigin", it) }
+        }
+        val response = apiClient.queryAniList(MANGA_QUERY, variables)
+        return response.requireData()["Page"]?.jsonObjectOrNull()
+            ?.get("media")?.jsonArray
+            ?.mapNotNull { it.jsonObjectOrNull()?.toMangaCard() }
+            ?.filterNot { manga -> manga.genres.any { it in BLOCKED_GENRES } }
+            .orEmpty()
+    }
+
     suspend fun details(id: Int, externalSource: String? = null): AnimeDetails {
         if (!externalSource.isNullOrBlank()) {
             val external = runCatching { apiClient.fetchAnimeMetadata(id.toString(), externalSource) }.getOrNull()
@@ -578,6 +611,36 @@ class AnilistRepository(
         )
     }
 
+    private fun JsonObject.toMangaCard(): MangaCard? {
+        val id = int("id") ?: return null
+        val titleObject = this["title"]?.jsonObjectOrNull()
+        val romaji = titleObject?.string("romaji")
+        val english = titleObject?.string("english")
+        val native = titleObject?.string("native")
+        val title = romaji ?: english ?: native ?: return null
+        val coverObject = this["coverImage"]?.jsonObjectOrNull()
+        val cover = coverObject?.string("extraLarge") ?: coverObject?.string("large")
+        val genres = this["genres"]?.jsonArray
+            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            .orEmpty()
+        return MangaCard(
+            id = id,
+            title = title,
+            englishTitle = english,
+            nativeTitle = native,
+            coverUrl = cover,
+            score = int("averageScore"),
+            chapters = int("chapters"),
+            volumes = int("volumes"),
+            format = string("format"),
+            status = string("status"),
+            countryOfOrigin = string("countryOfOrigin"),
+            year = this["startDate"]?.jsonObjectOrNull()?.int("year"),
+            description = cleanDescription(string("description")),
+            genres = genres,
+        )
+    }
+
     private fun JsonElement.jsonObjectOrNull(): JsonObject? =
         if (this is JsonNull) null else runCatching { jsonObject }.getOrNull()
 
@@ -703,6 +766,43 @@ class AnilistRepository(
                   genre_not_in: ["Hentai","Ecchi"]
                 ) {
                   $MEDIA_FIELDS
+                }
+              }
+            }
+        """.trimIndent()
+
+        val MANGA_QUERY = """
+            query (
+              ${"$"}page: Int = 1,
+              ${"$"}perPage: Int = 30,
+              ${"$"}search: String,
+              ${"$"}status: MediaStatus,
+              ${"$"}countryOfOrigin: CountryCode,
+              ${"$"}sort: [MediaSort] = [POPULARITY_DESC]
+            ) {
+              Page(page: ${"$"}page, perPage: ${"$"}perPage) {
+                media(
+                  type: MANGA,
+                  format_in: [MANGA, ONE_SHOT],
+                  search: ${"$"}search,
+                  status: ${"$"}status,
+                  countryOfOrigin: ${"$"}countryOfOrigin,
+                  sort: ${"$"}sort,
+                  isAdult: false,
+                  genre_not_in: ["Hentai", "Ecchi"]
+                ) {
+                  id
+                  title { romaji english native }
+                  coverImage { large extraLarge }
+                  averageScore
+                  chapters
+                  volumes
+                  format
+                  status
+                  countryOfOrigin
+                  startDate { year }
+                  description
+                  genres
                 }
               }
             }

@@ -44,6 +44,23 @@ data class AnimeCard(
     val contentKey: String = id.toString(),
 )
 
+data class MangaCard(
+    val id: Int,
+    val title: String,
+    val englishTitle: String? = null,
+    val nativeTitle: String? = null,
+    val coverUrl: String? = null,
+    val score: Int? = null,
+    val chapters: Int? = null,
+    val volumes: Int? = null,
+    val format: String? = null,
+    val status: String? = null,
+    val countryOfOrigin: String? = null,
+    val year: Int? = null,
+    val description: String = "",
+    val genres: List<String> = emptyList(),
+)
+
 data class RelationItem(
     val id: Int,
     val relationType: String,

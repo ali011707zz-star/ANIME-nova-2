@@ -1,5 +1,7 @@
 package com.nova.anime.nova2.ui
 
+import android.content.Intent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,13 +10,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -340,6 +348,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val state by sessionViewModel.state.collectAsState()
+    val context = LocalContext.current
     var confirmation by remember { mutableStateOf<SettingsAction?>(null) }
     var displayName by rememberSaveable(state.user?.displayName) {
         mutableStateOf(state.user?.displayName ?: state.user?.display_name ?: "")
@@ -513,6 +522,53 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("مسح المفضلة")
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, Color(0x6652D3A4)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF10211D)),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = Color(0xFF34D399),
+                                modifier = Modifier.size(22.dp),
+                            )
+                            Text(
+                                text = "ادعمني ليستمر التطبيق بالعمل مجانًا",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                        Text(
+                            text = "مشاركة التطبيق مع أصدقائك تساعد على وصوله لمحبي الأنمي.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(
+                            onClick = {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "أستخدم Anime NOVA لمتابعة الأنمي. شاركه مع محبي الأنمي لدعم استمرار التطبيق.",
+                                    )
+                                }
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(shareIntent, "مشاركة Anime NOVA"))
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("مشاركة التطبيق")
+                        }
+                    }
                 }
 
                 if (state.user != null) {

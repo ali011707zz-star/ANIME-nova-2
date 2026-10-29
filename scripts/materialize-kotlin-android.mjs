@@ -12,10 +12,14 @@ const catalogPath = resolve(repositoryRoot, "src/data/kotlinCodebase.ts");
 const androidRoot = resolve(repositoryRoot, "nova2-android");
 const checkOnly = process.argv.includes("--check");
 const writeFiles = process.argv.includes("--write");
+const syncFromAndroid = process.argv.includes("--sync-from-android");
 
-if (checkOnly === writeFiles || process.argv.length !== 3) {
+if (
+  [checkOnly, writeFiles, syncFromAndroid].filter(Boolean).length !== 1 ||
+  process.argv.length !== 3
+) {
   throw new Error(
-    "Choose exactly one mode: --check or --write.",
+    "Choose exactly one mode: --check, --write, or --sync-from-android.",
   );
 }
 
@@ -68,11 +72,13 @@ const materializedFiles = files.map((file) => {
   ) {
     const invalidReturn = "}.filter { it.isDigit() }.take(6)";
     const validReturn = `${invalidReturn}.joinToString(separator = "")`;
-    const occurrences = code.split(invalidReturn).length - 1;
+    const validOccurrences = code.split(validReturn).length - 1;
+    const invalidOccurrences =
+      code.split(invalidReturn).length - 1 - validOccurrences;
 
-    if (occurrences === 1) {
+    if (invalidOccurrences === 1 && validOccurrences === 0) {
       code = code.replace(invalidReturn, validReturn);
-    } else if (occurrences !== 0 || !code.includes(validReturn)) {
+    } else if (invalidOccurrences !== 0 || validOccurrences !== 1) {
       throw new Error("Embedded verification-code source is not in a known state.");
     }
   }
@@ -97,6 +103,135 @@ const listKotlinFiles = (directory) =>
     if (entry.isDirectory()) return listKotlinFiles(entryPath);
     return entry.isFile() && entry.name.endsWith(".kt") ? [entryPath] : [];
   });
+
+if (syncFromAndroid) {
+  const staleDuplicateEntries = files
+    .map((file, index) => ({ file, index }))
+    .filter(({ file }) => file.path.startsWith("app/app/"));
+  const sourceFiles = files
+    .map((file, index) => ({ file, index }))
+    .filter(({ file }) => !file.path.startsWith("app/app/"))
+    .map(({ file, index }) => ({
+      ...file,
+      index,
+      code: readFileSync(resolve(androidRoot, file.path), "utf8"),
+    }));
+  const catalogPaths = new Set(sourceFiles.map((file) => file.path));
+  const additionalKotlinFiles = listKotlinFiles(kotlinSourceRoot)
+    .map((fullPath) => ({
+      fullPath,
+      path: relative(androidRoot, fullPath).split(sep).join("/"),
+    }))
+    .filter((file) => !catalogPaths.has(file.path))
+    .map((file) => ({
+      name: file.path.split("/").at(-1),
+      path: file.path,
+      language: "kotlin",
+      descriptionAr: "شاشة أصلية ضمن تطبيق Anime NOVA لنظام Android.",
+      descriptionEn: "Native screen within the Anime NOVA Android app.",
+      code: readFileSync(file.fullPath, "utf8"),
+    }));
+
+  const objectRanges = [];
+  let cursor = arrayStart + 1;
+  while (cursor < arrayEnd) {
+    while (cursor < arrayEnd && /[\s,]/.test(catalogSource[cursor])) cursor += 1;
+    if (cursor >= arrayEnd) break;
+    if (catalogSource[cursor] !== "{") {
+      throw new Error("Unable to locate an embedded Android source object.");
+    }
+
+    const start = cursor;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let foundEnd = false;
+    for (; cursor < arrayEnd; cursor += 1) {
+      const char = catalogSource[cursor];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') inString = true;
+      else if (char === "{") depth += 1;
+      else if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          objectRanges.push({ start, end: cursor + 1 });
+          cursor += 1;
+          foundEnd = true;
+          break;
+        }
+      }
+    }
+    if (!foundEnd) throw new Error("An embedded Android source object is incomplete.");
+  }
+
+  if (objectRanges.length !== files.length) {
+    throw new Error("Embedded Android object count does not match its parsed catalog.");
+  }
+
+  const findStringEnd = (source, start) => {
+    if (source[start] !== '"') throw new Error("Expected a JSON string value.");
+    let escaped = false;
+    for (let index = start + 1; index < source.length; index += 1) {
+      const char = source[index];
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') return index;
+    }
+    throw new Error("An embedded JSON string is incomplete.");
+  };
+  const replaceCodeValue = (objectSource, code) => {
+    for (let index = 0; index < objectSource.length;) {
+      if (objectSource[index] !== '"') {
+        index += 1;
+        continue;
+      }
+      const keyEnd = findStringEnd(objectSource, index);
+      const key = JSON.parse(objectSource.slice(index, keyEnd + 1));
+      let colon = keyEnd + 1;
+      while (/\s/.test(objectSource[colon] ?? "")) colon += 1;
+      if (key === "code" && objectSource[colon] === ":") {
+        let valueStart = colon + 1;
+        while (/\s/.test(objectSource[valueStart] ?? "")) valueStart += 1;
+        const valueEnd = findStringEnd(objectSource, valueStart);
+        return objectSource.slice(0, valueStart) +
+          JSON.stringify(code) +
+          objectSource.slice(valueEnd + 1);
+      }
+      index = keyEnd + 1;
+    }
+    throw new Error("Could not locate an embedded Kotlin code field.");
+  };
+
+  const sourceFilesByPath = new Map(sourceFiles.map((file) => [file.path, file]));
+  const syncedObjects = objectRanges.flatMap((range, index) => {
+    const sourceFile = sourceFilesByPath.get(files[index].path);
+    if (!sourceFile) return [];
+    const currentObject = catalogSource.slice(range.start, range.end);
+    return [replaceCodeValue(currentObject, sourceFile.code)];
+  });
+  const appendedObjects = additionalKotlinFiles.map(
+    (file) => JSON.stringify(file, null, 2).replace(/\n/g, "\n  "),
+  );
+  const arrayObjects = [
+    ...syncedObjects.map((objectSource) => `  ${objectSource}`),
+    ...appendedObjects.map((objectSource) => `  ${objectSource}`),
+  ];
+  const syncedCatalog =
+    catalogSource.slice(0, arrayStart + 1) +
+    `\n${arrayObjects.join(",\n")}\n` +
+    catalogSource.slice(arrayEnd + 1);
+
+  writeFileSync(catalogPath, syncedCatalog);
+  console.log(
+    `Synchronized ${sourceFiles.length} embedded Android files, added ${additionalKotlinFiles.length} Kotlin files, and removed ${staleDuplicateEntries.length} invalid duplicate entries.`,
+  );
+  process.exit(0);
+}
 
 const expectedKotlinPaths = new Set(
   materializedFiles

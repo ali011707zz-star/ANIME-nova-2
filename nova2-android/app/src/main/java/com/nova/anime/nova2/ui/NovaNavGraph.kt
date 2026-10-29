@@ -43,6 +43,7 @@ fun NovaNavGraph(
                 onOpenSearch = { navController.navigate("search") },
                 onOpenDubbed = { navController.navigate("dubbed") },
                 onOpenAnimations = { navController.navigate("animations") },
+                onOpenManga = { navController.navigate("manga") },
                 onOpenStardima = { navController.navigate("stardima") },
                 onOpenSchedule = { navController.navigate("schedule") },
                 onOpenNews = { navController.navigate("news") },
@@ -61,6 +62,12 @@ fun NovaNavGraph(
             SearchScreen(
                 repository = repository,
                 onOpenDetails = { navController.navigate("details/$it") },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("manga") {
+            MangaCatalogScreen(
+                repository = repository,
                 onBack = { navController.popBackStack() },
             )
         }
