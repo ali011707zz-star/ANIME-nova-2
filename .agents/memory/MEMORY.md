@@ -1,0 +1,1 @@
+- [نطاق Android الأصلي](android-source-only.md) — لا تنشئ بديلًا؛ حدّد مصدر Android الأصلي قبل أي تعديل.
