@@ -485,6 +485,16 @@ fun MangaCatalogScreen(
         return
     }
 
+    val combinedCatalog = remember(remoteManga) {
+        val defaultTitles = DEFAULT_MANGA_CATALOG.map { it.titleEn.lowercase() }.toSet()
+        DEFAULT_MANGA_CATALOG + remoteManga.filterNot { it.titleEn.lowercase() in defaultTitles }
+    }
+    val filteredSeries = combinedCatalog.filter {
+        searchQuery.isBlank() ||
+            it.titleAr.contains(searchQuery.trim(), ignoreCase = true) ||
+            it.titleEn.contains(searchQuery.trim(), ignoreCase = true)
+    }
+
     CatalogScaffold(title = "المانجا والمانهوا المترجمة", onBack = onBack) {
         item {
             OutlinedTextField(
@@ -496,16 +506,6 @@ fun MangaCatalogScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
-        }
-
-        val combinedCatalog = remember(remoteManga) {
-            val defaultTitles = DEFAULT_MANGA_CATALOG.map { it.titleEn.lowercase() }.toSet()
-            DEFAULT_MANGA_CATALOG + remoteManga.filterNot { it.titleEn.lowercase() in defaultTitles }
-        }
-        val filteredSeries = combinedCatalog.filter {
-            searchQuery.isBlank() ||
-                it.titleAr.contains(searchQuery.trim(), ignoreCase = true) ||
-                it.titleEn.contains(searchQuery.trim(), ignoreCase = true)
         }
 
         items(filteredSeries, key = { it.id }) { manga ->
