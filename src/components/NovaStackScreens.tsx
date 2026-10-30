@@ -60,7 +60,7 @@ import {
   GENRE_MAP,
   paletteColors,
 } from "../constants/novaColors";
-import { useTvMetrics } from "../utils/tv";
+import { useTvMetrics, getGridColumnCount } from "../utils/tv";
 import { NovaInternalVideoPlayer } from "./NovaSeasonsAndMangaScreens";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -297,7 +297,7 @@ export function NovaAnimeDetailScreen({
       {/* ── Hero Banner (Modern Cinematic Backdrop) ── */}
       <div
         className="relative w-full overflow-hidden"
-        style={{ height: 220 }}
+        style={{ height: vpWidth >= 960 ? 310 : vpWidth >= 600 ? 260 : 220 }}
       >
         <img
           src={anime.bannerImage || anime.coverImage}
@@ -1344,7 +1344,12 @@ export function NovaAnimeDetailScreen({
 
         {/* Tab 3: مشابهة */}
         {tab === "similar" && (
-          <div className="grid grid-cols-3 gap-2.5">
+          <div
+            className="grid gap-2.5"
+            style={{
+              gridTemplateColumns: `repeat(${getGridColumnCount(vpWidth, vpHeight)}, minmax(0, 1fr))`,
+            }}
+          >
             {allAnime
               .filter((a) => a.id !== anime.id)
               .slice(0, 6)
@@ -6601,7 +6606,7 @@ export function NovaSettingsScreen({
           </div>
 
           {/* Integrated 4-Column Telemetry & Activity Strip */}
-          {!tvMode && (
+          {(
             <div
               className="grid grid-cols-4"
               style={{
@@ -6717,7 +6722,7 @@ export function NovaSettingsScreen({
       </div>
 
       {/* ── 2. Ocean Sapphire Nova Premium VIP Banner ── */}
-      {!tvMode && (
+      {(
         <div className="px-4 mt-4 flex flex-col gap-3">
           <button
             onClick={() => setShowPremium(true)}
@@ -10815,6 +10820,8 @@ export function NovaGlobalStatsScreen({
   onOpenDrawer: () => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: gsWidth, height: gsHeight } = useTvMetrics();
+  const gsCols = getGridColumnCount(gsWidth, gsHeight);
   const [activeTab, setActiveTab] = useState<GlobalStatsTabId>("top_all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -11003,8 +11010,11 @@ export function NovaGlobalStatsScreen({
         </div>
       </div>
 
-      {/* ── 3-Column Poster Grid with Year Overlay + Title + Format Subtitle ── */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* ── Responsive Poster Grid with Year Overlay + Title + Format Subtitle ── */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${gsCols}, minmax(0, 1fr))` }}
+      >
         {items.map((item) => (
           <div
             key={`${activeTab}-${item.id}`}
@@ -11181,6 +11191,8 @@ export function NovaComingSoonScreen({
   onOpenDrawer: () => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: csWidth, height: csHeight } = useTvMetrics();
+  const csCols = getGridColumnCount(csWidth, csHeight);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -11322,8 +11334,11 @@ export function NovaComingSoonScreen({
         )}
       </div>
 
-      {/* ── 3-Column Poster Grid (1:1 from Screenshot_20261027-165400) ── */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* ── Responsive Poster Grid (1:1 from Screenshot_20261027-165400) ── */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${csCols}, minmax(0, 1fr))` }}
+      >
         {items.map((item) => (
           <div
             key={item.id}
@@ -11421,6 +11436,8 @@ export function NovaLatestEpisodesScreen({
   onPlayEpisode: (anime: Anime, epNumber: number) => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: leWidth, height: leHeight } = useTvMetrics();
+  const leCols = getGridColumnCount(leWidth, leHeight);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "today" | "top">(
@@ -11646,8 +11663,11 @@ export function NovaLatestEpisodesScreen({
         )}
       </div>
 
-      {/* ── 3-Column Full Section Grid ── */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* ── Responsive Full Section Grid ── */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${leCols}, minmax(0, 1fr))` }}
+      >
         {filteredEntries.map((entry) => (
           <div
             key={entry.id}

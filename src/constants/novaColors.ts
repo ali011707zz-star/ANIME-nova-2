@@ -69,7 +69,7 @@ export const paletteColors = {
     buttonText: "#FFFFFF",
     pressFeedback: "rgba(15,23,42,0.08)",
   },
-} as const;
+};
 
 export type ThemeName = keyof typeof paletteColors;
 export type ThemePalette = (typeof paletteColors)[ThemeName];

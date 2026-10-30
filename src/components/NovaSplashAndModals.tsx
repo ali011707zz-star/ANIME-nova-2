@@ -750,6 +750,8 @@ export function TelegramAnnouncementModal({
 
             <button
               type="button"
+              data-testid="telegram-continue-btn"
+              autoFocus
               onClick={handleClose}
               className="w-full flex items-center justify-center cursor-pointer active:scale-[0.99] transition-transform"
               style={{

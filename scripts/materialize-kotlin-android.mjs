@@ -23,7 +23,7 @@ if (
   );
 }
 
-const catalogSource = readFileSync(catalogPath, "utf8");
+const catalogSource = readFileSync(catalogPath, "utf8").replace(/\r\n/g, "\n");
 const declaration =
   "const EMBEDDED_KOTLIN_ANDROID_PROJECT: KotlinSourceFile[] = ";
 const declarationStart = catalogSource.indexOf(declaration);

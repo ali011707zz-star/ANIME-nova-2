@@ -71,6 +71,9 @@ fun NovaEmbeddedAppScreen(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
+                isFocusable = true
+                isFocusableInTouchMode = true
+                requestFocus()
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true

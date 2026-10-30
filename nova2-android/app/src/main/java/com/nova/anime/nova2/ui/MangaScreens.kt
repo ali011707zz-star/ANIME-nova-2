@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.nova.anime.nova2.core.catalog.AnilistRepository
 
 data class MangaChapterEntry(
     val number: Int,
@@ -120,6 +122,7 @@ private val DEFAULT_MANGA_CATALOG: List<MangaSeriesEntry> = listOf(
 
 @Composable
 fun MangaCatalogScreen(
+    repository: AnilistRepository? = null,
     onBack: () -> Unit,
 ) {
     var selectedSeries by remember { mutableStateOf<MangaSeriesEntry?>(null) }
@@ -128,6 +131,32 @@ fun MangaCatalogScreen(
     var detailDropdownExpanded by remember { mutableStateOf(false) }
     var readerDropdownExpanded by remember { mutableStateOf(false) }
     var dropdownSearch by rememberSaveable { mutableStateOf("") }
+    var remoteManga by remember { mutableStateOf<List<MangaSeriesEntry>>(emptyList()) }
+
+    LaunchedEffect(repository, searchQuery) {
+        val repo = repository ?: return@LaunchedEffect
+        val loaded = runCatching {
+            repo.loadManga(search = searchQuery.trim().takeIf { it.isNotEmpty() })
+        }.getOrDefault(emptyList())
+        remoteManga = loaded.map { card ->
+            val totalCh = (card.chapters ?: 12).coerceIn(6, 24)
+            MangaSeriesEntry(
+                id = "anilist-manga-${card.id}",
+                titleAr = card.englishTitle ?: card.title,
+                titleEn = card.title,
+                coverUrl = card.coverUrl.orEmpty(),
+                score = ((card.score ?: 85) / 10.0),
+                statusAr = if (card.countryOfOrigin == "KR") "مانهوا ملونة" else "مانجا مترجمة",
+                synopsisAr = card.description.ifBlank { "فصول مترجمة بجودة عالية متاحة للقراءة الفورية." },
+                chapters = (1..totalCh).map { ch ->
+                    MangaChapterEntry(
+                        number = ch,
+                        titleAr = "الفصل $ch: ${card.englishTitle ?: card.title}",
+                    )
+                },
+            )
+        }
+    }
 
     val currentSeries = selectedSeries
     if (currentSeries != null && activeChapterNumber > 0) {
@@ -469,9 +498,13 @@ fun MangaCatalogScreen(
             )
         }
 
-        val filteredSeries = DEFAULT_MANGA_CATALOG.filter {
+        val combinedCatalog = remember(remoteManga) {
+            val defaultTitles = DEFAULT_MANGA_CATALOG.map { it.titleEn.lowercase() }.toSet()
+            DEFAULT_MANGA_CATALOG + remoteManga.filterNot { it.titleEn.lowercase() in defaultTitles }
+        }
+        val filteredSeries = combinedCatalog.filter {
             searchQuery.isBlank() ||
-                it.titleAr.contains(searchQuery.trim()) ||
+                it.titleAr.contains(searchQuery.trim(), ignoreCase = true) ||
                 it.titleEn.contains(searchQuery.trim(), ignoreCase = true)
         }
 

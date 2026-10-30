@@ -88,16 +88,16 @@ fun rememberNovaLayout(): NovaLayout {
     val width = configuration.screenWidthDp.coerceAtLeast(320)
     val height = configuration.screenHeightDp.coerceAtLeast(320)
     val isTv = (configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) ==
-        Configuration.UI_MODE_TYPE_TELEVISION || (width >= 1000 && height >= 500)
+        Configuration.UI_MODE_TYPE_TELEVISION || (width >= 960 && height >= 500)
     val columns = when {
         isTv -> 6
-        widthClass == WindowWidthSizeClass.Expanded -> 5
-        widthClass == WindowWidthSizeClass.Medium -> 4
+        width >= 840 || widthClass == WindowWidthSizeClass.Expanded -> 5
+        width >= 600 || widthClass == WindowWidthSizeClass.Medium -> 4
         else -> 3
     }
     val padding = when {
-        isTv -> 64.dp
-        width >= 600 -> 28.dp
+        isTv -> 24.dp
+        width >= 600 -> 20.dp
         else -> 16.dp
     }
     val available = (width.dp - padding * 2 - 10.dp * (columns - 1)).coerceAtLeast(280.dp)
@@ -106,7 +106,7 @@ fun rememberNovaLayout(): NovaLayout {
         isTv = isTv,
         columns = columns,
         horizontalPadding = padding,
-        cardWidth = (available / columns).coerceIn(if (isTv) 150.dp else 96.dp, if (isTv) 230.dp else 190.dp),
+        cardWidth = (available / columns).coerceIn(if (isTv) 140.dp else 96.dp, if (isTv) 240.dp else 200.dp),
         heroHeight = if (isTv) 430.dp else if (width >= 600) 350.dp else 290.dp,
     )
 }
@@ -116,6 +116,7 @@ fun NovaHeader(
     title: String? = null,
     onMenu: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
 ) {
     val layout = rememberNovaLayout()
     Row(
@@ -145,7 +146,10 @@ fun NovaHeader(
                 }
             }
         }
-        onMenu?.let { NovaIconButton(Icons.Default.Menu, "القائمة", it) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            onSearch?.let { NovaIconButton(Icons.Default.Search, "بحث", it) }
+            onMenu?.let { NovaIconButton(Icons.Default.Menu, "القائمة", it) }
+        }
     }
 }
 
@@ -156,6 +160,9 @@ fun NovaDrawerContent(
 ) {
     val destinations = listOf(
         NovaNavItem("الرئيسية", Icons.Default.Home),
+        NovaNavItem("أحدث الحلقات", Icons.Default.PlayArrow),
+        NovaNavItem("المواسم", Icons.Default.CalendarMonth),
+        NovaNavItem("قريبًا", Icons.Default.Star),
         NovaNavItem("تصفح", Icons.Default.GridView),
         NovaNavItem("بحث", Icons.Default.Search),
         NovaNavItem("المانجا", Icons.Default.Bookmark),
@@ -164,7 +171,9 @@ fun NovaDrawerContent(
         NovaNavItem("ستارديما", Icons.Default.Star),
         NovaNavItem("جدول البث", Icons.Default.CalendarMonth),
         NovaNavItem("الأخبار", Icons.Default.Newspaper),
+        NovaNavItem("تنزيلاتي", Icons.Outlined.Download),
         NovaNavItem("مكتبتي", Icons.Default.Bookmark),
+        NovaNavItem("ربط التلفاز", Icons.Default.Tv),
         NovaNavItem("الإعدادات", Icons.Outlined.Settings),
     )
     ModalDrawerSheet(
@@ -208,14 +217,14 @@ fun NovaIconButton(icon: ImageVector, description: String, onClick: () -> Unit) 
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(if (isTv) 64.dp else 44.dp)
+            .size(if (isTv) 54.dp else 44.dp)
             .onFocusChanged { focused = it.isFocused }
             .focusable(),
     ) {
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = if (focused) Color(0x526D28D9) else Color.Transparent,
-            border = if (focused && isTv) BorderStroke(2.dp, Color(0xFFC4B5FD)) else null,
+            color = if (focused) Color(0x520EA5E9) else Color.Transparent,
+            border = if (focused) BorderStroke(2.dp, Color(0xFF38BDF8)) else null,
         ) {
             Icon(icon, description, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(9.dp))
         }
@@ -230,16 +239,15 @@ fun NovaBottomNavigation(
     onSelect: (String) -> Unit,
 ) {
     val layout = rememberNovaLayout()
-    // Match artifacts/nova-mobile/app/(tabs)/_layout.tsx:
-    // Phone shows 6 tabs (including Search); TV hides Search tab from bottom bar
-    val items = buildList {
-        add(NovaNavItem("الرئيسية", Icons.Default.Home))
-        if (!layout.isTv) add(NovaNavItem("بحث", Icons.Default.Search))
-        add(NovaNavItem("تصفح", Icons.Default.GridView))
-        add(NovaNavItem("مدبلج", Icons.Default.Tv))
-        add(NovaNavItem("تنزيلاتي", Icons.Outlined.Download))
-        add(NovaNavItem("مكتبتي", Icons.Default.Bookmark))
-    }
+    // Keep the exact same 6 navigation tabs across Phone, Tablet, and TV
+    val items = listOf(
+        NovaNavItem("الرئيسية", Icons.Default.Home),
+        NovaNavItem("بحث", Icons.Default.Search),
+        NovaNavItem("تصفح", Icons.Default.GridView),
+        NovaNavItem("مدبلج", Icons.Default.Tv),
+        NovaNavItem("تنزيلاتي", Icons.Outlined.Download),
+        NovaNavItem("مكتبتي", Icons.Default.Bookmark),
+    )
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = .98f),
         tonalElevation = 8.dp,
@@ -267,13 +275,13 @@ private fun NovaNavButton(item: NovaNavItem, active: Boolean, tv: Boolean, onCli
             .clip(RoundedCornerShape(14.dp))
             .background(
                 when {
-                    focused && tv -> Color(0x526D28D9)
+                    focused -> Color(0x380EA5E9)
                     active -> MaterialTheme.colorScheme.primary.copy(alpha = .20f)
                     else -> Color.Transparent
                 },
             )
             .then(
-                if (focused && tv) Modifier.border(BorderStroke(2.dp, Color(0xFFC4B5FD)), RoundedCornerShape(14.dp))
+                if (focused) Modifier.border(BorderStroke(2.dp, Color(0xFF38BDF8)), RoundedCornerShape(14.dp))
                 else Modifier,
             )
             .onFocusChanged { focused = it.isFocused }
@@ -384,8 +392,8 @@ fun NovaAnimeCard(
                     Text("جديد", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
                 }
             }
-            if (focused && layout.isTv) {
-                Box(Modifier.matchParentSize().border(BorderStroke(3.dp, Color(0xFFC4B5FD)), RoundedCornerShape(14.dp)))
+            if (focused) {
+                Box(Modifier.matchParentSize().border(BorderStroke(3.dp, Color(0xFF38BDF8)), RoundedCornerShape(14.dp)))
             }
         }
         Text(
@@ -425,6 +433,20 @@ fun NovaAnimeGrid(
             }
         }
     }
+}
+
+@Composable
+fun NovaHero(
+    items: List<AnimeCard>,
+    onDetails: (Int) -> Unit,
+    onEpisodes: (Int) -> Unit,
+) {
+    val active = items.firstOrNull() ?: return
+    NovaHero(
+        anime = active,
+        onDetails = { onDetails(active.id) },
+        onEpisodes = { onEpisodes(active.id) },
+    )
 }
 
 @Composable

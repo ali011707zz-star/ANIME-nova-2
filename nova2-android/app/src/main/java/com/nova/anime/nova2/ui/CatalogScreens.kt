@@ -4,7 +4,9 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -99,16 +102,15 @@ fun HomeScreen(
     onOpenDetails: (Int) -> Unit,
     onOpenEpisodes: (Int) -> Unit,
     onOpenWatch: (Int, Int) -> Unit,
-    onOpenLatestEpisodes: () -> Unit,
-    onOpenSeasons: () -> Unit,
-    onOpenComingSoon: () -> Unit,
-    onOpenTvLink: () -> Unit,
+    onOpenLatestEpisodes: () -> Unit = {},
+    onOpenSeasons: () -> Unit = {},
+    onOpenComingSoon: () -> Unit = {},
+    onOpenTvLink: () -> Unit = {},
     onOpenBrowse: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenDubbed: () -> Unit,
-    onOpenDownloads: () -> Unit,
+    onOpenDownloads: () -> Unit = {},
     onOpenAnimations: () -> Unit,
-    onOpenManga: () -> Unit,
     onOpenStardima: () -> Unit,
     onOpenManga: () -> Unit = {},
     onOpenSchedule: () -> Unit,
@@ -293,9 +295,16 @@ private fun LatestEpisodesRail(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(episodes, key = { "${it.anilistId}-${it.episode}-${it.sourceSite}" }) { ep ->
+                var focused by remember { mutableStateOf(false) }
                 Card(
                     modifier = Modifier
                         .width(if (layout.isTv) 220.dp else 160.dp)
+                        .onFocusChanged { focused = it.isFocused }
+                        .focusable()
+                        .then(
+                            if (focused) Modifier.border(BorderStroke(2.5.dp, Color(0xFF38BDF8)), RoundedCornerShape(12.dp))
+                            else Modifier
+                        )
                         .clickable { onOpenWatch(ep.anilistId, ep.episode) },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 ) {
@@ -379,9 +388,16 @@ private fun ContinueWatchingRail(
                 } else {
                     13
                 }
+                var focused by remember { mutableStateOf(false) }
                 Card(
                     modifier = Modifier
                         .width(if (layout.isTv) 200.dp else 168.dp)
+                        .onFocusChanged { focused = it.isFocused }
+                        .focusable()
+                        .then(
+                            if (focused) Modifier.border(BorderStroke(2.5.dp, Color(0xFF38BDF8)), RoundedCornerShape(14.dp))
+                            else Modifier
+                        )
                         .clickable { onResume(entry) },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

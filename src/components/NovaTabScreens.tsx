@@ -1181,10 +1181,9 @@ export function NovaSearchTab({
 }) {
   const { width, height, tv: tvMode, contentWidth } = useTvMetrics();
   const cols = getGridColumnCount(width, height);
-  const phoneContainerW = Math.min(width, 540);
-  const gridCardWidth = tvMode
-    ? Math.floor((contentWidth - 32 - (cols - 1) * 12) / cols)
-    : Math.floor((phoneContainerW - 32 - (cols - 1) * 10) / cols);
+  const gridCardWidth = Math.floor(
+    (contentWidth - 32 - (cols - 1) * (tvMode ? 12 : 10)) / cols
+  );
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
@@ -1402,10 +1401,9 @@ export function NovaBrowseTab({
 }) {
   const { width, height, tv: tvMode, contentWidth } = useTvMetrics();
   const cols = getGridColumnCount(width, height);
-  const phoneContainerW = Math.min(width, 540);
-  const gridCardWidth = tvMode
-    ? Math.floor((contentWidth - 32 - (cols - 1) * 12) / cols)
-    : Math.floor((phoneContainerW - 32 - (cols - 1) * 10) / cols);
+  const gridCardWidth = Math.floor(
+    (contentWidth - 32 - (cols - 1) * (tvMode ? 12 : 10)) / cols
+  );
   const browseScrollRef = React.useRef<HTMLDivElement | null>(null);
 
   const [sort, setSort] = useState<"POPULARITY" | "SCORE" | "YEAR" | "NAME">(

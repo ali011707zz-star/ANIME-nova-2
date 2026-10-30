@@ -73,10 +73,14 @@ body::-webkit-scrollbar,
 body.nova-tv-mode button:focus,
 body.nova-tv-mode button:focus-visible,
 body.nova-tv-mode [data-tv-focusable="true"]:focus,
-body.nova-tv-mode [data-tv-focusable="true"]:focus-visible {
-  background-color: rgba(124, 58, 237, 0.12);
-  outline: 3px solid #6D28D9 !important;
-  outline-offset: 0px !important;
+body.nova-tv-mode [data-tv-focusable="true"]:focus-visible,
+body.nova-tv-mode [role="button"]:focus,
+body.nova-tv-mode [role="button"]:focus-visible,
+body.nova-tv-mode .cursor-pointer:focus,
+body.nova-tv-mode .cursor-pointer:focus-visible {
+  outline: 3px solid #38BDF8 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.28) !important;
   z-index: 20;
 }
 

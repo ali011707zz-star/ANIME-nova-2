@@ -92,11 +92,17 @@ private val PRESET_ANIME_AVATARS = listOf(
 fun LibraryScreen(
     libraryStore: LibraryStore,
     downloadRepository: DownloadRepository,
+    initialTab: String = "FAVORITES",
     onOpenDetails: (Int) -> Unit,
     onOpenWatch: (Int, Int) -> Unit,
     onBack: () -> Unit,
 ) {
-    var tab by remember { mutableStateOf(LibraryTab.FAVORITES) }
+    var tab by remember(initialTab) {
+        mutableStateOf(
+            runCatching { LibraryTab.valueOf(initialTab.uppercase()) }
+                .getOrDefault(LibraryTab.FAVORITES),
+        )
+    }
     val favorites by libraryStore.favorites.collectAsState()
     val history by libraryStore.history.collectAsState()
     val downloads by libraryStore.downloads.collectAsState()

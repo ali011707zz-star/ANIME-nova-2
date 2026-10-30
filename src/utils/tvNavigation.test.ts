@@ -77,3 +77,33 @@ test('filterAnimeList filters by genre and search text', () => {
   assert.equal(searchSolo.length, 1);
   assert.equal(searchSolo[0].id, 'solo-leveling');
 });
+
+import {
+  isTvDevice,
+  isTabletDevice,
+  getGridColumnCount,
+  getRailCardWidth,
+  getRailSidePadding,
+} from './tv';
+
+test('Phone, Tablet, and TV responsive metrics scale columns and card widths smoothly while preserving identical UI', () => {
+  // Phone (390x844)
+  assert.equal(isTvDevice(390, 844), false);
+  assert.equal(isTabletDevice(390, 844), false);
+  assert.equal(getGridColumnCount(390, 104), 3);
+  assert.equal(getRailSidePadding(390), 16);
+
+  // Tablet Portrait (820x1180)
+  assert.equal(isTvDevice(820, 1180), false);
+  assert.equal(isTabletDevice(820, 1180), true);
+  assert.equal(getGridColumnCount(820, 104), 4);
+  assert.equal(getRailSidePadding(820), 20);
+
+  // TV / Large Landscape (1280x720 and 1920x1080)
+  assert.equal(isTvDevice(1280, 720), true);
+  assert.equal(getGridColumnCount(1280, 104), 5);
+  assert.equal(getGridColumnCount(1920, 104), 6);
+  assert.equal(getRailSidePadding(1280), 24);
+  assert.ok(getRailCardWidth(1280, 5.5) >= 145 && getRailCardWidth(1280, 5.5) <= 220);
+});
+

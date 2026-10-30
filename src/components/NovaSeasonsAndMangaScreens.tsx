@@ -19,6 +19,7 @@ import {
   RiftPlayerServerItem,
   RiftPlayerEpisodeItem,
 } from "./RiftPlayer";
+import { useTvMetrics, getGridColumnCount } from "../utils/tv";
 
 /* ══════════════════════════════════════════════════════════════════════════
    1. NovaInternalVideoPlayer — Authentic Nova Mobile RiftPlayer Bridge
@@ -63,6 +64,8 @@ export function NovaSeasonsScreen({
   onOpenDrawer: () => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: vpWidth, height: vpHeight } = useTvMetrics();
+  const cols = getGridColumnCount(vpWidth, vpHeight);
   // Default tab is "current" (الموسم الحالي) per user request
   const [activeTab, setActiveTab] = useState<SeasonsTabId>("current");
   const [selectedSeasonLabel, setSelectedSeasonLabel] = useState<string | null>(
@@ -341,7 +344,10 @@ export function NovaSeasonsScreen({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+          >
             {seasonAnimeItems.map((anime) => (
               <div
                 key={anime.id}
@@ -587,6 +593,8 @@ export function NovaMangaScreen({
   onBack: () => void;
   onOpenDrawer: () => void;
 }) {
+  const { width: vpWidth, height: vpHeight } = useTvMetrics();
+  const cols = getGridColumnCount(vpWidth, vpHeight);
   const [filterTab, setFilterTab] = useState<
     "all" | "ongoing" | "completed" | "manhwa"
   >("all");
@@ -1690,8 +1698,11 @@ export function NovaMangaScreen({
         </div>
       </div>
 
-      {/* 3-Column Manga Poster Grid */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* Responsive Manga Poster Grid */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {filteredList.map((item) => (
           <div
             key={item.id}

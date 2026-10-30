@@ -23,7 +23,8 @@ jobs:
 
       - name: Build Full Anime NOVA UI Assets & Bundle into nova2-android
         run: |
-          npm install
+          npm install --legacy-peer-deps
+          node scripts/materialize-kotlin-android.mjs --write
           npm run build
           mkdir -p nova2-android/app/src/main/assets/webapp
           cp -r dist/* nova2-android/app/src/main/assets/webapp/
@@ -33,6 +34,12 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
+          accept-android-sdk-licenses: true
 
       - name: Setup Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4

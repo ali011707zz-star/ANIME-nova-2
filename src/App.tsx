@@ -558,11 +558,11 @@ export default function App() {
         onNavigate={handleDrawerNavigate}
       />
 
-      {/* Main Screen Content (automatically expands to contentWidth in TV mode) */}
+      {/* Main Screen Content (automatically adapts to Phone, Tablet, and TV width) */}
       <main
         ref={mainRef}
         className="flex-1 min-h-0 flex flex-col w-full mx-auto relative overflow-hidden"
-        style={{ maxWidth: tvMode ? contentWidth : 540 }}
+        style={{ maxWidth: contentWidth }}
       >
         <div
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
@@ -749,7 +749,7 @@ export default function App() {
               aria-label="التنقل السفلي"
               className="fixed bottom-0 left-0 right-0 z-40 mx-auto px-2.5 pb-2 pt-1"
               style={{
-                maxWidth: tvMode ? contentWidth : 540,
+                maxWidth: contentWidth,
                 background:
                   theme === "white"
                     ? "linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.92) 35%, #F8FAFC 100%)"
