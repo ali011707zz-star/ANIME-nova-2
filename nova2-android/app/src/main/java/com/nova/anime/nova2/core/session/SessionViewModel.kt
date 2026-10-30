@@ -77,7 +77,6 @@ class SessionViewModel(
                     emptyList()
                 }
                 val nextStatus = when {
-                    config.officialDownloadRequired -> BootstrapStatus.OfficialAppRequired
                     config.maintenanceMode -> BootstrapStatus.Maintenance
                     else -> BootstrapStatus.Ready
                 }
@@ -91,21 +90,12 @@ class SessionViewModel(
                         error = null,
                     )
                 }
-            } catch (error: NovaApiException) {
-                if (error is NovaApiException.OfficialAppRequired) {
-                    _state.update { it.copy(status = BootstrapStatus.OfficialAppRequired, error = null) }
-                } else {
-                    _state.update {
-                        it.copy(
-                            status = BootstrapStatus.Error(error.toArabicMessage()),
-                            error = error.toArabicMessage(),
-                        )
-                    }
-                }
-            } catch (error: Exception) {
-                val message = error.message ?: "تعذر إكمال التهيئة"
+            } catch (_: Exception) {
                 _state.update {
-                    it.copy(status = BootstrapStatus.Error(message), error = message)
+                    it.copy(
+                        status = BootstrapStatus.Ready,
+                        error = null,
+                    )
                 }
             }
         }

@@ -1181,10 +1181,9 @@ export function NovaSearchTab({
 }) {
   const { width, height, tv: tvMode, contentWidth } = useTvMetrics();
   const cols = getGridColumnCount(width, height);
-  const phoneContainerW = Math.min(width, 540);
-  const gridCardWidth = tvMode
-    ? Math.floor((contentWidth - 32 - (cols - 1) * 12) / cols)
-    : Math.floor((phoneContainerW - 32 - (cols - 1) * 10) / cols);
+  const gridCardWidth = Math.floor(
+    (contentWidth - 32 - (cols - 1) * (tvMode ? 12 : 10)) / cols
+  );
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
@@ -1402,10 +1401,9 @@ export function NovaBrowseTab({
 }) {
   const { width, height, tv: tvMode, contentWidth } = useTvMetrics();
   const cols = getGridColumnCount(width, height);
-  const phoneContainerW = Math.min(width, 540);
-  const gridCardWidth = tvMode
-    ? Math.floor((contentWidth - 32 - (cols - 1) * 12) / cols)
-    : Math.floor((phoneContainerW - 32 - (cols - 1) * 10) / cols);
+  const gridCardWidth = Math.floor(
+    (contentWidth - 32 - (cols - 1) * (tvMode ? 12 : 10)) / cols
+  );
   const browseScrollRef = React.useRef<HTMLDivElement | null>(null);
 
   const [sort, setSort] = useState<"POPULARITY" | "SCORE" | "YEAR" | "NAME">(
@@ -1471,6 +1469,9 @@ export function NovaBrowseTab({
       : sort === "YEAR"
       ? "الأحدث"
       : "الأكثر شعبية";
+
+  const isLight =
+    colors.background === "#F8FAFC" || colors.background === "#FFFFFF";
 
   const activeFiltersCount = [
     status,
@@ -1586,7 +1587,7 @@ export function NovaBrowseTab({
             >
               <SlidersHorizontal
                 size={17}
-                color={showFilters ? "#fff" : colors.text}
+                color={showFilters ? "#fff" : colors.textPrimary}
               />
               {activeFiltersCount > 0 && (
                 <span
@@ -1613,18 +1614,23 @@ export function NovaBrowseTab({
           </div>
         </div>
 
-        {/* Sort Row matching IMG_20261029_124853_198_08970a99.jpg ("بواسطة الاسم / الأكثر شعبية") */}
+        {/* Sort & Active Filters Row (Theme-Aware for Light & Dark Modes) */}
         <button
+          data-testid="browse-sort-filter-bar"
           onClick={() => setShowFilters(true)}
-          className="w-full flex items-center justify-between py-1.5 px-1 cursor-pointer"
+          className="w-full flex items-center justify-between py-2 px-3 rounded-xl cursor-pointer transition-colors"
+          style={{
+            backgroundColor: isLight ? colors.card : "rgba(255, 255, 255, 0.03)",
+            border: `1px solid ${colors.border}`,
+          }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <SlidersHorizontal size={15} color={colors.textSecondary} />
             <span
               style={{
-                color: colors.text,
+                color: colors.textPrimary,
                 fontSize: 13,
-                fontWeight: 700,
+                fontWeight: 800,
               }}
             >
               {sortLabelAr}
@@ -1634,9 +1640,11 @@ export function NovaBrowseTab({
                 style={{
                   padding: "2px 8px",
                   borderRadius: 999,
-                  backgroundColor: "rgba(225, 29, 72, 0.2)",
+                  backgroundColor: isLight
+                    ? "rgba(225, 29, 72, 0.12)"
+                    : "rgba(225, 29, 72, 0.2)",
                   border: "1px solid rgba(244, 63, 94, 0.5)",
-                  color: "#FDA4AF",
+                  color: isLight ? "#BE123C" : "#FDA4AF",
                   fontSize: 11,
                   fontWeight: 800,
                 }}
@@ -1649,9 +1657,11 @@ export function NovaBrowseTab({
                 style={{
                   padding: "2px 8px",
                   borderRadius: 999,
-                  backgroundColor: "rgba(124, 58, 237, 0.22)",
+                  backgroundColor: isLight
+                    ? "rgba(124, 58, 237, 0.12)"
+                    : "rgba(124, 58, 237, 0.22)",
                   border: "1px solid rgba(139, 92, 246, 0.5)",
-                  color: "#C4B5FD",
+                  color: isLight ? "#6D28D9" : "#C4B5FD",
                   fontSize: 11,
                   fontWeight: 800,
                 }}
@@ -1695,7 +1705,9 @@ export function NovaBrowseTab({
                 borderRadius: 12,
                 background: g.bg,
                 border: active
-                  ? "2.5px solid #FFFFFF"
+                  ? isLight
+                    ? "2.5px solid #0F172A"
+                    : "2.5px solid #FFFFFF"
                   : "1px solid rgba(255, 255, 255, 0.22)",
                 boxShadow: active
                   ? "0 8px 20px rgba(0, 0, 0, 0.55)"
@@ -1780,7 +1792,7 @@ export function NovaBrowseTab({
             style={{
               fontSize: 11.5,
               fontWeight: 800,
-              color: "#FB7185",
+              color: isLight ? "#E11D48" : "#FB7185",
             }}
           >
             إعادة ضبط الفلاتر
@@ -1809,7 +1821,7 @@ export function NovaBrowseTab({
         ))}
       </div>
 
-      {/* ── Floating Red Scroll-Top & Filter Action Buttons (Matches Bottom-Right of IMG_20261029_124853_198_08970a99.jpg) ── */}
+      {/* ── Floating Red Scroll-Top & Filter Action Buttons ── */}
       <div
         className="fixed z-30 flex flex-col gap-2.5"
         style={{
@@ -1863,37 +1875,46 @@ export function NovaBrowseTab({
         </button>
       </div>
 
-      {/* ── Full Filter Modal / Sheet (Appears When Filter Button is Pressed — Includes Seasons & Years Down to 1990) ── */}
+      {/* ── Full Filter Modal / Sheet (Dynamically Adapts to Light & Dark Theme) ── */}
       {showFilters && (
         <div
           data-testid="browse-filter-modal"
           onClick={() => setShowFilters(false)}
           className="fixed inset-0 z-50 flex items-end justify-center"
           style={{
-            backgroundColor: "rgba(0, 0, 0, 0.72)",
+            backgroundColor: isLight
+              ? "rgba(15, 23, 42, 0.45)"
+              : "rgba(0, 0, 0, 0.72)",
           }}
         >
           <div
             dir="rtl"
+            data-testid="browse-filter-sheet"
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg rounded-t-3xl flex flex-col overflow-hidden"
             style={{
               maxHeight: "84vh",
-              backgroundColor: "#12101B",
-              borderTop: "1px solid rgba(255, 255, 255, 0.14)",
-              boxShadow: "0 -16px 44px rgba(0, 0, 0, 0.85)",
+              backgroundColor: isLight ? "#FFFFFF" : "#12101B",
+              borderTop: isLight
+                ? "1px solid #E2E8F0"
+                : "1px solid rgba(255, 255, 255, 0.14)",
+              boxShadow: isLight
+                ? "0 -16px 44px rgba(15, 23, 42, 0.18)"
+                : "0 -16px 44px rgba(0, 0, 0, 0.85)",
             }}
           >
             {/* Modal Header */}
             <div
               className="flex items-center justify-between px-5 py-4 shrink-0"
               style={{
-                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                borderBottom: isLight
+                  ? "1px solid #E2E8F0"
+                  : "1px solid rgba(255, 255, 255, 0.08)",
               }}
             >
               <span
                 style={{
-                  color: "#FFFFFF",
+                  color: isLight ? "#0F172A" : "#FFFFFF",
                   fontSize: 17,
                   fontWeight: 800,
                 }}
@@ -1912,8 +1933,10 @@ export function NovaBrowseTab({
                   }}
                   className="px-3 py-1.5 rounded-xl cursor-pointer"
                   style={{
-                    backgroundColor: "rgba(225, 29, 72, 0.16)",
-                    color: "#FDA4AF",
+                    backgroundColor: isLight
+                      ? "rgba(225, 29, 72, 0.10)"
+                      : "rgba(225, 29, 72, 0.16)",
+                    color: isLight ? "#BE123C" : "#FDA4AF",
                     fontSize: 12,
                     fontWeight: 800,
                   }}
@@ -1928,10 +1951,13 @@ export function NovaBrowseTab({
                   style={{
                     width: 34,
                     height: 34,
-                    backgroundColor: "rgba(255, 255, 255, 0.08)",
+                    backgroundColor: isLight
+                      ? "#F1F5F9"
+                      : "rgba(255, 255, 255, 0.08)",
+                    border: isLight ? "1px solid #E2E8F0" : "none",
                   }}
                 >
-                  <X size={17} color="#FFFFFF" />
+                  <X size={17} color={isLight ? "#0F172A" : "#FFFFFF"} />
                 </button>
               </div>
             </div>
@@ -1944,7 +1970,7 @@ export function NovaBrowseTab({
                   style={{
                     fontSize: 13,
                     fontWeight: 800,
-                    color: "#A1A1AA",
+                    color: isLight ? "#475569" : "#A1A1AA",
                     marginBottom: 8,
                   }}
                 >
@@ -1967,11 +1993,21 @@ export function NovaBrowseTab({
                         style={{
                           backgroundColor: active
                             ? "#E11D48"
+                            : isLight
+                            ? "#F1F5F9"
                             : "rgba(255, 255, 255, 0.05)",
                           border: `1px solid ${
-                            active ? "#FB7185" : "rgba(255, 255, 255, 0.1)"
+                            active
+                              ? "#FB7185"
+                              : isLight
+                              ? "#CBD5E1"
+                              : "rgba(255, 255, 255, 0.1)"
                           }`,
-                          color: "#FFFFFF",
+                          color: active
+                            ? "#FFFFFF"
+                            : isLight
+                            ? "#0F172A"
+                            : "#FFFFFF",
                           fontSize: 12.5,
                           fontWeight: 800,
                         }}
@@ -1989,7 +2025,7 @@ export function NovaBrowseTab({
                   style={{
                     fontSize: 13,
                     fontWeight: 800,
-                    color: "#A1A1AA",
+                    color: isLight ? "#475569" : "#A1A1AA",
                     marginBottom: 8,
                   }}
                 >
@@ -2007,11 +2043,21 @@ export function NovaBrowseTab({
                         style={{
                           backgroundColor: active
                             ? "#E11D48"
+                            : isLight
+                            ? "#F1F5F9"
                             : "rgba(255, 255, 255, 0.05)",
                           border: `1px solid ${
-                            active ? "#FB7185" : "rgba(255, 255, 255, 0.1)"
+                            active
+                              ? "#FB7185"
+                              : isLight
+                              ? "#CBD5E1"
+                              : "rgba(255, 255, 255, 0.1)"
                           }`,
-                          color: "#FFFFFF",
+                          color: active
+                            ? "#FFFFFF"
+                            : isLight
+                            ? "#0F172A"
+                            : "#FFFFFF",
                           fontSize: 12.5,
                           fontWeight: 700,
                         }}
@@ -2029,7 +2075,7 @@ export function NovaBrowseTab({
                   style={{
                     fontSize: 13,
                     fontWeight: 800,
-                    color: "#A1A1AA",
+                    color: isLight ? "#475569" : "#A1A1AA",
                     marginBottom: 8,
                   }}
                 >
@@ -2051,11 +2097,21 @@ export function NovaBrowseTab({
                         style={{
                           backgroundColor: active
                             ? "#E11D48"
+                            : isLight
+                            ? "#F1F5F9"
                             : "rgba(255, 255, 255, 0.05)",
                           border: `1px solid ${
-                            active ? "#FB7185" : "rgba(255, 255, 255, 0.1)"
+                            active
+                              ? "#FB7185"
+                              : isLight
+                              ? "#CBD5E1"
+                              : "rgba(255, 255, 255, 0.1)"
                           }`,
-                          color: "#FFFFFF",
+                          color: active
+                            ? "#FFFFFF"
+                            : isLight
+                            ? "#0F172A"
+                            : "#FFFFFF",
                           fontSize: 12.5,
                           fontWeight: 700,
                         }}
@@ -2073,7 +2129,7 @@ export function NovaBrowseTab({
                   style={{
                     fontSize: 13,
                     fontWeight: 800,
-                    color: "#A1A1AA",
+                    color: isLight ? "#475569" : "#A1A1AA",
                     marginBottom: 8,
                   }}
                 >
@@ -2091,11 +2147,21 @@ export function NovaBrowseTab({
                         style={{
                           backgroundColor: active
                             ? "#E11D48"
+                            : isLight
+                            ? "#F1F5F9"
                             : "rgba(255, 255, 255, 0.05)",
                           border: `1px solid ${
-                            active ? "#FB7185" : "rgba(255, 255, 255, 0.1)"
+                            active
+                              ? "#FB7185"
+                              : isLight
+                              ? "#CBD5E1"
+                              : "rgba(255, 255, 255, 0.1)"
                           }`,
-                          color: "#FFFFFF",
+                          color: active
+                            ? "#FFFFFF"
+                            : isLight
+                            ? "#0F172A"
+                            : "#FFFFFF",
                           fontSize: 12.5,
                           fontWeight: 700,
                         }}
@@ -2113,7 +2179,7 @@ export function NovaBrowseTab({
                   style={{
                     fontSize: 13,
                     fontWeight: 800,
-                    color: "#A1A1AA",
+                    color: isLight ? "#475569" : "#A1A1AA",
                     marginBottom: 8,
                   }}
                 >
@@ -2135,11 +2201,21 @@ export function NovaBrowseTab({
                           gridColumn: y.key === "" ? "span 4" : undefined,
                           backgroundColor: active
                             ? "#E11D48"
+                            : isLight
+                            ? "#F1F5F9"
                             : "rgba(255, 255, 255, 0.05)",
                           border: `1px solid ${
-                            active ? "#FB7185" : "rgba(255, 255, 255, 0.1)"
+                            active
+                              ? "#FB7185"
+                              : isLight
+                              ? "#CBD5E1"
+                              : "rgba(255, 255, 255, 0.1)"
                           }`,
-                          color: "#FFFFFF",
+                          color: active
+                            ? "#FFFFFF"
+                            : isLight
+                            ? "#0F172A"
+                            : "#FFFFFF",
                           fontSize: 12.5,
                           fontWeight: 700,
                         }}
@@ -2156,8 +2232,10 @@ export function NovaBrowseTab({
             <div
               className="p-4 shrink-0"
               style={{
-                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-                backgroundColor: "#181524",
+                borderTop: isLight
+                  ? "1px solid #E2E8F0"
+                  : "1px solid rgba(255, 255, 255, 0.08)",
+                backgroundColor: isLight ? "#F8FAFC" : "#181524",
               }}
             >
               <button

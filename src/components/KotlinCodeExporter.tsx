@@ -61,6 +61,34 @@ export const KotlinCodeExporter: React.FC<KotlinCodeExporterProps> = ({
    - Account-isolated storage (\`nova-history:account:{userId}\`), deferred deletions, FNV-1a namespace isolation (\`getWatchContentId\`), and MP4 DownloadManager + MediaStore gallery export.
 `;
       zip.file('README.md', readmeContent);
+      zip.file(
+        '.github/workflows/build-android-apk.yml',
+        `name: Build Anime NOVA Android APK (v3.5)
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: gradle assembleDebug assembleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Anime-NOVA-v3.5-Android-APK
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
+`
+      );
 
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);

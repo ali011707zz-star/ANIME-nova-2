@@ -1,0 +1,57 @@
+name: Build Anime NOVA Android APK (v3.5)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Compile Pure Native Kotlin + Compose + Media3 APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Materialize Native Kotlin + Jetpack Compose + Media3 Sources
+        run: |
+          node scripts/materialize-kotlin-android.mjs --write
+          rm -rf nova2-android/app/src/main/assets/webapp
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
+          accept-android-sdk-licenses: true
+
+      - name: Setup Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build Single Unified Signed Native APK (Phone, Tablet & Android TV)
+        working-directory: ./nova2-android
+        run: |
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Anime-NOVA-v3.5.apk
+
+      - name: Upload Single Ready-to-Install Anime NOVA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Anime-NOVA-v3.5-Android-APK
+          path: ./Anime-NOVA-v3.5.apk
+          if-no-files-found: error

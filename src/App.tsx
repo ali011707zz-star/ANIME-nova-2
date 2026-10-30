@@ -183,33 +183,36 @@ export default function App() {
   }, []);
 
   // Unified Back handler (matches artifacts/nova-mobile/app/_layout.tsx BackHandler)
-  const handleBackPress = useCallback(() => {
+  const handleBackPress = useCallback((): boolean => {
     if (drawerOpen) {
       setDrawerOpen(false);
-      return;
+      return true;
     }
     if (showKotlinExporter) {
       setShowKotlinExporter(false);
-      return;
+      return true;
     }
     if (showTelegramModal) {
       setShowTelegramModal(false);
-      return;
+      return true;
     }
     if (routeStack.length > 1) {
       popRoute();
-      return;
+      return true;
     }
     if (activeTab !== "index") {
       setActiveTab("index");
-      return;
+      return true;
     }
     if (tvMode) {
       const now = Date.now();
       if (tvExitArmedUntilRef.current > now) {
         tvExitArmedUntilRef.current = 0;
         setShowTvExitHint(false);
-        return;
+        try {
+          (window as any).NovaAndroid?.exitApp?.();
+        } catch {}
+        return false;
       }
       tvExitArmedUntilRef.current = now + 2200;
       setShowTvExitHint(true);
@@ -220,7 +223,9 @@ export default function App() {
         tvExitArmedUntilRef.current = 0;
         setShowTvExitHint(false);
       }, 2200);
+      return true;
     }
+    return false;
   }, [
     drawerOpen,
     showKotlinExporter,
@@ -230,6 +235,13 @@ export default function App() {
     tvMode,
     popRoute,
   ]);
+
+  useEffect(() => {
+    (window as any).__novaHandleBackPress = handleBackPress;
+    return () => {
+      delete (window as any).__novaHandleBackPress;
+    };
+  }, [handleBackPress]);
 
   // Enable D-Pad spatial focus and Back/Escape key navigation
   useTvSpatialNavigation(tvMode, handleBackPress);
@@ -522,29 +534,36 @@ export default function App() {
         color: colors.text,
       }}
     >
-      {/* BrandSplash startup screen */}
+      {/* BrandSplash startup screen — never overlaps with TelegramAnnouncementModal */}
       {showSplash && (
         <BrandSplash
+          colors={colors}
           onFinish={() => {
             setShowSplash(false);
             try {
               sessionStorage.setItem("nova_splash_shown_v3", "1");
-              if (!sessionStorage.getItem("nova_tg_shown")) {
-                sessionStorage.setItem("nova_tg_shown", "1");
-                setShowTelegramModal(true);
+              const params = new URLSearchParams(window.location.search);
+              const skipModals =
+                params.get("autostart") === "1" || params.get("player") === "1";
+              if (!skipModals && !sessionStorage.getItem("nova_tg_shown_v3")) {
+                sessionStorage.setItem("nova_tg_shown_v3", "1");
+                setTimeout(() => {
+                  setShowTelegramModal(true);
+                }, 320);
               }
-            } catch {
-              setShowTelegramModal(true);
-            }
+            } catch {}
           }}
         />
       )}
 
-      {/* Telegram Announcement Modal */}
-      <TelegramAnnouncementModal
-        visible={showTelegramModal}
-        onDismiss={() => setShowTelegramModal(false)}
-      />
+      {/* Telegram Announcement Modal — strictly hidden while BrandSplash is mounted */}
+      {!showSplash && (
+        <TelegramAnnouncementModal
+          visible={showTelegramModal}
+          colors={colors}
+          onDismiss={() => setShowTelegramModal(false)}
+        />
+      )}
 
       {/* DrawerMenu (1:1 from components/DrawerMenu.tsx) */}
       <NovaDrawerMenu
@@ -556,11 +575,11 @@ export default function App() {
         onNavigate={handleDrawerNavigate}
       />
 
-      {/* Main Screen Content (automatically expands to contentWidth in TV mode) */}
+      {/* Main Screen Content (automatically adapts to Phone, Tablet, and TV width) */}
       <main
         ref={mainRef}
         className="flex-1 min-h-0 flex flex-col w-full mx-auto relative overflow-hidden"
-        style={{ maxWidth: tvMode ? contentWidth : 540 }}
+        style={{ maxWidth: contentWidth }}
       >
         <div
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
@@ -747,7 +766,7 @@ export default function App() {
               aria-label="التنقل السفلي"
               className="fixed bottom-0 left-0 right-0 z-40 mx-auto px-2.5 pb-2 pt-1"
               style={{
-                maxWidth: tvMode ? contentWidth : 540,
+                maxWidth: contentWidth,
                 background:
                   theme === "white"
                     ? "linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.92) 35%, #F8FAFC 100%)"
@@ -1085,7 +1104,9 @@ export default function App() {
               colors={colors}
               onBack={popRoute}
               onOpenDetails={(anime) => pushRoute({ type: "anime", anime })}
-              onPlayEpisode={(anime) => handleOpenWatch(anime, 1)}
+              onPlayEpisode={(anime, epNum) =>
+                handleOpenWatch(anime, epNum || 1)
+              }
             />
           </div>
         )}

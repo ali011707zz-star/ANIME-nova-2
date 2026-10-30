@@ -42,7 +42,12 @@ data class AnimeCard(
     val genres: List<String> = emptyList(),
     val contentKind: WatchContentKind = WatchContentKind.ANIME,
     val contentKey: String = id.toString(),
-)
+) {
+    fun displayTitle(): String =
+        arabicTitle?.takeIf { it.isNotBlank() }
+            ?: englishTitle?.takeIf { it.isNotBlank() }
+            ?: title
+}
 
 data class MangaCard(
     val id: Int,
@@ -175,7 +180,13 @@ data class AiringScheduleItem(
     val episode: Int,
     val airingAtEpochSec: Long,
     val anime: AnimeCard,
-)
+) {
+    val airingAt: Long
+        get() = airingAtEpochSec
+
+    val timeUntilAiring: Long
+        get() = airingAtEpochSec - (System.currentTimeMillis() / 1000L)
+}
 
 data class HomeCatalog(
     val trending: List<AnimeCard> = emptyList(),

@@ -118,7 +118,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlin.math.roundToInt
 
 private const val STALL_THRESHOLD_MS = 8_500L
-private const val HUD_AUTO_HIDE_MS = 4_200L
+private const val HUD_AUTO_HIDE_MS = 3_500L
 
 /**
  * Full-screen RTL dark/violet glassmorphic native video player built with Kotlin, Jetpack Compose,
@@ -203,6 +203,10 @@ fun RiftPlayer(
     var hudInteractionTick by remember { mutableIntStateOf(0) }
     var gestureHudText by remember { mutableStateOf<String?>(null) }
     var gestureHudProgress by remember { mutableStateOf<Float?>(null) }
+    // Transient Brightness / Volume pill (strictly temporary — appears only during touch drag and disappears automatically)
+    var transientLevelKind by remember { mutableStateOf<String?>(null) } // "brightness" | "volume"
+    var transientLevelPercent by remember { mutableIntStateOf(0) }
+    var transientLevelTick by remember { mutableIntStateOf(0) }
 
     // Subtitles state — immediately cleared whenever source changes
     var serviceSubtitles by remember(metadata.anilistId, metadata.episodeNumber) {
@@ -538,6 +542,14 @@ fun RiftPlayer(
         }
     }
 
+    // Auto-hide transient Brightness / Volume pill ~1.1s after vertical touch swipe stops
+    LaunchedEffect(transientLevelKind, transientLevelTick) {
+        if (transientLevelKind != null) {
+            delay(1_100L)
+            transientLevelKind = null
+        }
+    }
+
     // Storage permission launcher for API < 29 screenshot saving
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -585,7 +597,7 @@ fun RiftPlayer(
         player.seekTo(target)
         currentPositionMs = target
         bumpHud()
-        gestureHudText = if (deltaMs >= 0L) "⏩ +${deltaMs / 1000} ثوانٍ" else "⏪ ${deltaMs / 1000} ثوانٍ"
+        gestureHudText = if (deltaMs >= 0L) "+${deltaMs / 1000} ثوانٍ" else "${deltaMs / 1000} ثوانٍ"
     }
 
     fun handleExitPlayer() {
@@ -598,6 +610,39 @@ fun RiftPlayer(
         )
         orientationController.restoreExitOrientation()
         onClose(exitState)
+    }
+
+    fun triggerScreenshotCapture() {
+        bumpHud()
+        val src = currentSource ?: return
+        if (!RiftScreenshotCapture.hasGalleryPermission(context) &&
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+        ) {
+            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            return
+        }
+        scope.launch {
+            val headers = RiftMediaSourceFactory.buildRequestHeaders(
+                source = src,
+                defaultHeaders = playerServices.defaultMediaHeaders(),
+            )
+            val res = RiftScreenshotCapture.captureAndSaveToGallery(
+                context = context,
+                playerView = playerViewRef,
+                currentSource = src,
+                requestHeaders = headers,
+                positionMs = currentPositionMs,
+                isFlipped180 = isFlipped180,
+                activeSubtitleText = activeSubtitleText,
+                subtitleStyle = subtitleStyle,
+                episodeLabel = "${metadata.title}_ep${metadata.episodeNumber ?: 1}",
+            )
+            gestureHudText = when (res) {
+                is ScreenshotSaveResult.Success -> res.messageAr
+                is ScreenshotSaveResult.PermissionRequired -> res.messageAr
+                is ScreenshotSaveResult.Failure -> res.messageAr
+            }
+        }
     }
 
     BackHandler(enabled = showSubtitleSettingsModal || showSpeedMenu || controlsLocked || isFullscreen) {
@@ -614,12 +659,14 @@ fun RiftPlayer(
         }
     }
 
+    val isLandscapeLayout = isTv || isFullscreen || orientationController.isLandscape
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .then(
                 if (isFullscreen) Modifier.fillMaxSize()
-                else Modifier.height(if (isTv) 520.dp else 285.dp),
+                else Modifier.height(if (isTv) 520.dp else 310.dp),
             )
             .background(Color.Black)
             .onPreviewKeyEvent { event ->
@@ -643,9 +690,8 @@ fun RiftPlayer(
                         true
                     }
                     Key.DirectionLeft -> {
-                        // In RTL, Left arrow scrubs forward or backward intuitively when HUD is closed
                         if (!hudVisible) {
-                            seekByDeltaMs(10_000L)
+                            seekByDeltaMs(-10_000L)
                             true
                         } else {
                             bumpHud()
@@ -654,7 +700,7 @@ fun RiftPlayer(
                     }
                     Key.DirectionRight -> {
                         if (!hudVisible) {
-                            seekByDeltaMs(-10_000L)
+                            seekByDeltaMs(10_000L)
                             true
                         } else {
                             bumpHud()
@@ -727,18 +773,23 @@ fun RiftPlayer(
             }
             .pointerInput(isTv, controlsLocked) {
                 if (isTv || controlsLocked) return@pointerInput
+                // Vertical drag gesture:
+                // - Left half of screen = Brightness (السطوع)
+                // - Right half of screen = Volume (الصوت)
+                // Swipe UP (negative dragAmount) increases level; swipe DOWN decreases level.
                 detectVerticalDragGestures { change, dragAmount ->
                     change.consume()
                     val isLeftSide = change.position.x < size.width / 2f
                     if (isLeftSide && activity != null) {
                         val lp = activity.window.attributes
                         val currentBrightness = if (lp.screenBrightness < 0f) 0.55f else lp.screenBrightness
-                        val nextBrightness = (currentBrightness - dragAmount / 550f).coerceIn(0.05f, 1.0f)
+                        val nextBrightness = (currentBrightness - dragAmount / 520f).coerceIn(0.05f, 1.0f)
                         lp.screenBrightness = nextBrightness
                         activity.window.attributes = lp
-                        val pct = (nextBrightness * 100).roundToInt()
-                        gestureHudProgress = nextBrightness
-                        gestureHudText = "☀ السطوع $pct%"
+                        val pct = (nextBrightness * 100).roundToInt().coerceIn(5, 100)
+                        transientLevelKind = "brightness"
+                        transientLevelPercent = pct
+                        transientLevelTick += 1
                     } else if (audioManager != null) {
                         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
                         val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -746,9 +797,10 @@ fun RiftPlayer(
                         val nextVol = (curVol + delta).coerceIn(0, maxVol)
                         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, nextVol, 0)
                         isMuted = nextVol == 0
-                        val pct = ((nextVol.toFloat() / maxVol.toFloat()) * 100).roundToInt()
-                        gestureHudProgress = nextVol.toFloat() / maxVol.toFloat()
-                        gestureHudText = "🔊 الصوت $pct%"
+                        val pct = ((nextVol.toFloat() / maxVol.toFloat()) * 100).roundToInt().coerceIn(0, 100)
+                        transientLevelKind = "volume"
+                        transientLevelPercent = pct
+                        transientLevelTick += 1
                     }
                 }
             },
@@ -778,7 +830,7 @@ fun RiftPlayer(
             },
         )
 
-        // 2. Custom Synchronized VTT/SRT Subtitle Overlay (supports Top/Center/Bottom + vertical offset + colors + bold/extra-bold + background alpha)
+        // 2. Custom Synchronized VTT/SRT Subtitle Overlay
         if (subtitleStyle.enabled && !activeSubtitleText.isNullOrBlank()) {
             val baseAlignment = when (subtitleStyle.verticalPosition) {
                 SubtitleVerticalPosition.TOP -> Alignment.TopCenter
@@ -788,7 +840,7 @@ fun RiftPlayer(
             val basePadding = when (subtitleStyle.verticalPosition) {
                 SubtitleVerticalPosition.TOP -> PaddingValues(top = 48.dp, start = 24.dp, end = 24.dp)
                 SubtitleVerticalPosition.CENTER -> PaddingValues(horizontal = 24.dp)
-                SubtitleVerticalPosition.BOTTOM -> PaddingValues(bottom = if (hudVisible) 88.dp else 28.dp, start = 24.dp, end = 24.dp)
+                SubtitleVerticalPosition.BOTTOM -> PaddingValues(bottom = if (hudVisible) 108.dp else 28.dp, start = 24.dp, end = 24.dp)
             }
 
             Box(
@@ -831,7 +883,7 @@ fun RiftPlayer(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 CircularProgressIndicator(
-                    color = Color(0xFFA855F7),
+                    color = Color(0xFFFF1717),
                     strokeWidth = 3.dp,
                     modifier = Modifier.size(36.dp),
                 )
@@ -845,44 +897,54 @@ fun RiftPlayer(
             }
         }
 
-        // 4. Gesture Feedback Pill (Volume / Brightness / Seek / 2x Speed / Screenshot)
-        gestureHudText?.let { feedback ->
+        // 4. Transient Brightness / Volume Pill on Middle-Left (Strictly temporary — disappears automatically)
+        transientLevelKind?.let { kind ->
             Surface(
-                color = Color(0xD90B0914),
+                color = Color(0xD616161A),
                 shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(1.dp, Color(0x55A855F7)),
+                border = BorderStroke(1.dp, Color(0x14FFFFFF)),
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 20.dp),
+                    .align(Alignment.CenterStart)
+                    .padding(start = if (isLandscapeLayout) 40.dp else 18.dp),
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                Row(
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        text = feedback,
+                        text = if (kind == "brightness") "☀" else "🔊",
                         color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
                     )
-                    gestureHudProgress?.let { progress ->
-                        Spacer(Modifier.height(5.dp))
-                        Box(
-                            modifier = Modifier
-                                .width(110.dp)
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(Color(0x33FFFFFF)),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(progress.coerceIn(0f, 1f))
-                                    .height(4.dp)
-                                    .background(Color(0xFFA855F7)),
-                            )
-                        }
-                    }
+                    Text(
+                        text = "${transientLevelPercent}%",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
+            }
+        }
+
+        // 4b. Other Action Feedback Toast (Seek / 2x Speed / Screenshot / Aspect)
+        gestureHudText?.let { feedback ->
+            Surface(
+                color = Color(0xD9101014),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, Color(0x26FFFFFF)),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 18.dp),
+            ) {
+                Text(
+                    text = feedback,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                )
             }
         }
 
@@ -896,16 +958,16 @@ fun RiftPlayer(
                     currentPositionMs = targetMs
                     gestureHudText = if (activeIntro != null) "تم تخطي المقدمة ⏭" else "تم تخطي الخاتمة ⏭"
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xE67C3AED)),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, Color(0x99DDD6FE)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xEB141418)),
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.5.dp, Color(0x99F59E0B)),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = if (hudVisible) 96.dp else 28.dp),
+                    .padding(end = 20.dp, bottom = if (hudVisible) 138.dp else 48.dp),
             ) {
                 Text(
                     text = if (activeIntro != null) "تخطي المقدمة ⏭" else "تخطي الخاتمة ⏭",
-                    color = Color.White,
+                    color = Color(0xFFFBBF24),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 13.sp,
                 )
@@ -920,23 +982,33 @@ fun RiftPlayer(
                     hudVisible = true
                     gestureHudText = "🔓 تم إلغاء قفل اللمس"
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xE6141122)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xEB121216)),
                 shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(1.5.dp, Color(0xFFA855F7)),
+                border = BorderStroke(1.dp, Color(0x40FFFFFF)),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 24.dp),
             ) {
                 Text(
-                    text = "🔒 الشاشة مقفلة — اضغط هنا لإلغاء القفل",
+                    text = "🔒 الشاشة مقفلة — اضغط لإلغاء القفل",
                     color = Color.White,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                 )
             }
         }
 
-        // 7. Full Custom Glassmorphic RTL HUD Overlay
+        // 7. Full Custom HUD Overlay Matching the Reference Portrait & Landscape Screenshots
+        val formattedSubtitleLine = remember(
+            metadata.episodeNumber,
+            currentSource?.quality,
+            metadata.quality,
+        ) {
+            val epPart = "الحلقة ${metadata.episodeNumber ?: 1}"
+            val qualPart = (currentSource?.quality ?: metadata.quality ?: "1080P").uppercase()
+            "$epPart • العربية • مترجم • $qualPart"
+        }
+
         AnimatedVisibility(
             visible = hudVisible && !controlsLocked && !isEnded && terminalErrorAr == null,
             enter = fadeIn(),
@@ -949,250 +1021,261 @@ fun RiftPlayer(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                Color(0xCC05040A),
-                                Color(0x3305040A),
-                                Color(0x3305040A),
-                                Color(0xE605040A),
+                                Color(0xD9000000),
+                                Color(0x26000000),
+                                Color(0x26000000),
+                                Color(0xE6000000),
                             ),
                         ),
                     ),
             ) {
-                // Top Glass Bar: Metadata + Quick Tool Pills
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Right side in RTL: Back button + Episode & Source metadata
+                // TOP HEADER (Landscape vs. Portrait layout matching the reference screenshots)
+                if (isLandscapeLayout) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .padding(horizontal = 24.dp, vertical = 18.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        RiftGlassButton(
-                            label = "رجوع",
-                            onClick = { handleExitPlayer() },
-                        )
+                        // Left: Title + Episode/Lang/Sub/Quality line
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = buildString {
-                                    append(metadata.title)
-                                    metadata.episodeNumber?.let { append(" · الحلقة $it") }
-                                },
+                                text = metadata.title,
                                 color = Color.White,
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = if (isTv) 16.sp else 13.sp,
+                                fontSize = if (isTv) 22.sp else 20.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            val subLine = buildList {
-                                metadata.episodeTitle?.takeIf { it.isNotBlank() }?.let(::add)
-                                (currentSource?.name ?: metadata.sourceName)?.takeIf { it.isNotBlank() }?.let(::add)
-                                (currentSource?.quality ?: metadata.quality)?.takeIf { it.isNotBlank() }?.let(::add)
-                            }.joinToString(" • ")
-                            if (subLine.isNotEmpty()) {
-                                Text(
-                                    text = subLine,
-                                    color = Color(0xFFD8B4FE),
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = formattedSubtitleLine,
+                                color = Color(0xFFEBEBF0),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        // Right: 5 Circular Dark Icon Buttons [Camera, PiP/Flip, Aspect, Rotate, Close]
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RiftDarkCircleIconButton(
+                                iconText = "📷",
+                                onClick = { triggerScreenshotCapture() },
+                            )
+                            RiftDarkCircleIconButton(
+                                iconText = "⧉",
+                                active = isFlipped180,
+                                onClick = {
+                                    isFlipped180 = !isFlipped180
+                                    bumpHud()
+                                    gestureHudText = if (isFlipped180) "تم قلب الصورة 180°" else "الوضع الطبيعي للصورة"
+                                },
+                            )
+                            RiftDarkCircleIconButton(
+                                iconText = "⛶",
+                                active = fitMode != AspectRatioFitMode.FIT,
+                                onClick = {
+                                    val modes = AspectRatioFitMode.entries
+                                    fitMode = modes[(modes.indexOf(fitMode) + 1) % modes.size]
+                                    bumpHud()
+                                    gestureHudText = "الأبعاد: ${fitMode.labelAr}"
+                                },
+                            )
+                            if (!isTv) {
+                                RiftDarkCircleIconButton(
+                                    iconText = "🔄",
+                                    onClick = {
+                                        val nowLandscape = orientationController.toggleOrientation()
+                                        bumpHud()
+                                        gestureHudText = if (nowLandscape) "الوضع الأفقي" else "الوضع العمودي"
+                                    },
+                                )
+                            }
+                            RiftDarkCircleIconButton(
+                                iconText = "✕",
+                                onClick = { handleExitPlayer() },
+                            )
+                        }
+                    }
+                } else {
+                    // Portrait Header: Top row has 4 right-aligned circular buttons; second row has Title + Subtitle on left
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                RiftDarkCircleIconButton(
+                                    iconText = "📷",
+                                    onClick = { triggerScreenshotCapture() },
+                                )
+                                RiftDarkCircleIconButton(
+                                    iconText = "⧉",
+                                    active = isFlipped180,
+                                    onClick = {
+                                        isFlipped180 = !isFlipped180
+                                        bumpHud()
+                                        gestureHudText = if (isFlipped180) "تم قلب الصورة 180°" else "الوضع الطبيعي للصورة"
+                                    },
+                                )
+                                RiftDarkCircleIconButton(
+                                    iconText = "🔄",
+                                    onClick = {
+                                        val nowLandscape = orientationController.toggleOrientation()
+                                        bumpHud()
+                                        gestureHudText = if (nowLandscape) "الوضع الأفقي" else "الوضع العمودي"
+                                    },
+                                )
+                                RiftDarkCircleIconButton(
+                                    iconText = "✕",
+                                    onClick = { handleExitPlayer() },
                                 )
                             }
                         }
-                    }
-
-                    // Left side in RTL: Action buttons (180° Flip, Aspect Mode, Screenshot, Rotate, Lock, Subtitles)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RiftGlassButton(
-                            label = if (isFlipped180) "قلب 180° ✓" else "قلب 180°",
-                            active = isFlipped180,
-                            onClick = {
-                                isFlipped180 = !isFlipped180
-                                bumpHud()
-                                gestureHudText = if (isFlipped180) "🔄 تم قلب الصورة 180°" else "🔄 الوضع الطبيعي للصورة"
-                            },
-                        )
-                        RiftGlassButton(
-                            label = fitMode.id.uppercase(),
-                            onClick = {
-                                val modes = AspectRatioFitMode.entries
-                                fitMode = modes[(modes.indexOf(fitMode) + 1) % modes.size]
-                                bumpHud()
-                                gestureHudText = "الأبعاد: ${fitMode.labelAr}"
-                            },
-                        )
-                        RiftGlassButton(
-                            label = "📸",
-                            onClick = {
-                                bumpHud()
-                                val src = currentSource ?: return@RiftGlassButton
-                                if (!RiftScreenshotCapture.hasGalleryPermission(context) &&
-                                    Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                                ) {
-                                    storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                    return@RiftGlassButton
-                                }
-                                scope.launch {
-                                    val headers = RiftMediaSourceFactory.buildRequestHeaders(
-                                        source = src,
-                                        defaultHeaders = playerServices.defaultMediaHeaders(),
-                                    )
-                                    val res = RiftScreenshotCapture.captureAndSaveToGallery(
-                                        context = context,
-                                        playerView = playerViewRef,
-                                        currentSource = src,
-                                        requestHeaders = headers,
-                                        positionMs = currentPositionMs,
-                                        isFlipped180 = isFlipped180,
-                                        activeSubtitleText = activeSubtitleText,
-                                        subtitleStyle = subtitleStyle,
-                                        episodeLabel = "${metadata.title}_ep${metadata.episodeNumber ?: 1}",
-                                    )
-                                    gestureHudText = when (res) {
-                                        is ScreenshotSaveResult.Success -> res.messageAr
-                                        is ScreenshotSaveResult.PermissionRequired -> res.messageAr
-                                        is ScreenshotSaveResult.Failure -> res.messageAr
-                                    }
-                                }
-                            },
-                        )
-                        if (!isTv) {
-                            RiftGlassButton(
-                                label = if (orientationController.isLandscape) "أفقي" else "عمودي",
-                                onClick = {
-                                    val nowLandscape = orientationController.toggleOrientation()
-                                    bumpHud()
-                                    gestureHudText = if (nowLandscape) "📱 الوضع الأفقي" else "📱 الوضع العمودي"
-                                },
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = metadata.title,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 21.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            RiftGlassButton(
-                                label = "🔒",
-                                onClick = {
-                                    controlsLocked = true
-                                    unlockPillVisible = true
-                                    hudVisible = false
-                                },
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = formattedSubtitleLine,
+                                color = Color(0xFFEBEBF0),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        RiftGlassButton(
-                            label = "CC الترجمة",
-                            active = subtitleStyle.enabled && selectedSubtitleTrack != null,
-                            onClick = {
-                                showSubtitleSettingsModal = true
-                                showSpeedMenu = false
-                            },
+                    }
+                }
+
+                // PORTRAIT CENTER SEEK BUTTONS (↺ 5 and ↻ 5 float in the center of the video in Portrait mode)
+                if (!isLandscapeLayout) {
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalArrangement = Arrangement.spacedBy(76.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RiftSeek5CircleButton(
+                            isForward = false,
+                            onClick = { seekByDeltaMs(-5_000L) },
+                        )
+                        RiftSeek5CircleButton(
+                            isForward = true,
+                            onClick = { seekByDeltaMs(5_000L) },
                         )
                     }
                 }
 
-                // Center Transport Controls: -10s, Play/Pause, +10s
-                Row(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RiftGlassCircleButton(
-                        label = "⏪ 10s",
-                        isTv = isTv,
-                        onClick = { seekByDeltaMs(-10_000L) },
-                    )
-                    RiftGlassCircleButton(
-                        label = if (isPlaying) "⏸" else "▶",
-                        isPrimary = true,
-                        isTv = isTv,
-                        onClick = {
-                            if (player.isPlaying) player.pause() else player.play()
-                            bumpHud()
-                        },
-                    )
-                    RiftGlassCircleButton(
-                        label = "10s ⏩",
-                        isTv = isTv,
-                        onClick = { seekByDeltaMs(10_000L) },
-                    )
-                }
-
-                // Bottom Glass Bar: Interactive Seekbar with Intro/Outro Markers + Transport Footer
+                // BOTTOM TIMELINE + CONTROL BAR
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        .padding(
+                            horizontal = if (isLandscapeLayout) 28.dp else 20.dp,
+                            vertical = if (isLandscapeLayout) 16.dp else 22.dp,
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // Seekbar row with current time, interactive track with intro/outro markers, and total duration
                     val displayPosMs = if (isScrubbing) scrubPositionMs else currentPositionMs
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text(
-                            text = formatDurationMs(displayPosMs),
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        RiftTimelineSeekBar(
-                            positionMs = displayPosMs,
-                            durationMs = durationMs,
-                            bufferedPositionMs = bufferedPositionMs,
-                            introInterval = effectiveIntro,
-                            outroInterval = effectiveOutro,
-                            isTv = isTv,
-                            modifier = Modifier.weight(1f),
-                            onScrubStart = { pos ->
-                                isScrubbing = true
-                                scrubPositionMs = pos
-                                bumpHud()
-                            },
-                            onScrubChange = { pos ->
-                                scrubPositionMs = pos
-                                bumpHud()
-                            },
-                            onScrubConfirm = { pos ->
-                                isScrubbing = false
-                                player.seekTo(pos)
-                                currentPositionMs = pos
-                                bumpHud()
-                            },
-                        )
-                        Text(
-                            text = formatDurationMs(durationMs),
-                            color = Color(0xFFD4D4D8),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
 
-                    // Bottom controls row: Mute, Speed (remembered in session), Prev/Next Episode, Fullscreen
+                    // Timestamps row ABOVE the seekbar (Current time on left, Total duration on right)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        Text(
+                            text = formatDurationMs(displayPosMs),
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = formatDurationMs(durationMs),
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+
+                    // Interactive LTR Red Seekbar with Yellow (#F59E0B) Intro & Outro Skip Segments
+                    RiftTimelineSeekBar(
+                        positionMs = displayPosMs,
+                        durationMs = durationMs,
+                        bufferedPositionMs = bufferedPositionMs,
+                        introInterval = effectiveIntro,
+                        outroInterval = effectiveOutro,
+                        isTv = isTv,
+                        modifier = Modifier.fillMaxWidth(),
+                        onScrubStart = { pos ->
+                            isScrubbing = true
+                            scrubPositionMs = pos
+                            bumpHud()
+                        },
+                        onScrubChange = { pos ->
+                            scrubPositionMs = pos
+                            bumpHud()
+                        },
+                        onScrubConfirm = { pos ->
+                            isScrubbing = false
+                            player.seekTo(pos)
+                            currentPositionMs = pos
+                            bumpHud()
+                        },
+                    )
+
+                    // Bottom Control Bar:
+                    // Left: [ ⏩ FastForward / Skip ] + [ Speedometer ]
+                    // Center: [ ↺ 5 ] (landscape) + [ ( || / ▶ ) white-ringed circle ] + [ ↻ 5 ] (landscape)
+                    // Right: [ CC ] + [ 🔓 Lock ]
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                    ) {
+                        // Left Controls
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            horizontalArrangement = Arrangement.spacedBy(18.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            RiftGlassButton(
-                                label = if (isMuted) "🔇 مكتوم" else "🔊 الصوت",
-                                active = isMuted,
+                            RiftPlainIconButton(
+                                label = "⏩",
                                 onClick = {
-                                    isMuted = !isMuted
-                                    bumpHud()
+                                    val skipTarget = activeIntro ?: activeOutro
+                                    if (skipTarget != null) {
+                                        val targetMs = (skipTarget.endSeconds * 1000.0).toLong()
+                                        player.seekTo(targetMs)
+                                        currentPositionMs = targetMs
+                                    } else {
+                                        seekByDeltaMs(10_000L)
+                                    }
                                 },
                             )
-                            RiftGlassButton(
-                                label = "السرعة ${playbackSpeed}x",
-                                active = playbackSpeed != 1.0f,
+                            RiftPlainIconButton(
+                                label = if (playbackSpeed != 1.0f) "${playbackSpeed}x" else "⏱",
+                                active = playbackSpeed != 1.0f || showSpeedMenu,
                                 onClick = {
                                     showSpeedMenu = !showSpeedMenu
                                     showSubtitleSettingsModal = false
@@ -1201,28 +1284,81 @@ fun RiftPlayer(
                             )
                         }
 
+                        // Center Controls
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalArrangement = Arrangement.spacedBy(34.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (hasPrevEpisode) {
-                                RiftGlassButton(
-                                    label = "⏮ الحلقة السابقة",
-                                    onClick = { onPrevEpisode() },
+                            if (isLandscapeLayout) {
+                                RiftSeek5CircleButton(
+                                    isForward = false,
+                                    onClick = { seekByDeltaMs(-5_000L) },
                                 )
                             }
-                            if (hasNextEpisode) {
-                                RiftGlassButton(
-                                    label = "الحلقة التالية ⏭",
-                                    onClick = { onNextEpisode() },
+                            // White-ringed Play / Pause Circle Button
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isTv) 68.dp else 60.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x730E0E12))
+                                    .border(2.5.dp, Color.White, CircleShape)
+                                    .clickable {
+                                        if (player.isPlaying) player.pause() else player.play()
+                                        bumpHud()
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = if (isPlaying) "⏸" else "▶",
+                                    color = Color.White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.ExtraBold,
                                 )
                             }
-                            if (onToggleFullscreen != null) {
-                                RiftGlassButton(
-                                    label = if (isFullscreen) "تصغير ↙" else "ملء الشاشة ↗",
-                                    onClick = { onToggleFullscreen() },
+                            if (isLandscapeLayout) {
+                                RiftSeek5CircleButton(
+                                    isForward = true,
+                                    onClick = { seekByDeltaMs(5_000L) },
                                 )
                             }
+                        }
+
+                        // Right Controls
+                        Row(
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            horizontalArrangement = Arrangement.spacedBy(18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(
+                                        if (subtitleStyle.enabled) Color.White else Color(0x88FFFFFF),
+                                    )
+                                    .clickable {
+                                        showSubtitleSettingsModal = true
+                                        showSpeedMenu = false
+                                        bumpHud()
+                                    }
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "CC",
+                                    color = Color.Black,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            }
+                            RiftPlainIconButton(
+                                label = "🔓",
+                                onClick = {
+                                    controlsLocked = true
+                                    unlockPillVisible = true
+                                    hudVisible = false
+                                },
+                            )
                         }
                     }
                 }
@@ -1403,7 +1539,6 @@ fun RiftPlayer(
                                     failedSourceKeys = emptySet()
                                     terminalErrorAr = null
                                     activeIndex = 0
-                                    // Trigger fresh reload of first source
                                     val first = sources.firstOrNull()
                                     if (first != null) {
                                         val validation = RiftMediaSourceFactory.validateSourceUrl(first.url, first.type)
@@ -1465,12 +1600,12 @@ private fun RiftTimelineSeekBar(
                 if (!focused || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
                     Key.DirectionLeft -> {
-                        val next = (positionMs + 10_000L).coerceIn(0L, safeDuration)
+                        val next = (positionMs - 10_000L).coerceIn(0L, safeDuration)
                         onScrubConfirm(next)
                         true
                     }
                     Key.DirectionRight -> {
-                        val next = (positionMs - 10_000L).coerceIn(0L, safeDuration)
+                        val next = (positionMs + 10_000L).coerceIn(0L, safeDuration)
                         onScrubConfirm(next)
                         true
                     }
@@ -1479,7 +1614,7 @@ private fun RiftTimelineSeekBar(
             }
             .pointerInput(safeDuration) {
                 detectTapGestures { offset ->
-                    val fraction = (1f - (offset.x / size.width.toFloat())).coerceIn(0f, 1f)
+                    val fraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                     val target = (fraction * safeDuration).toLong()
                     onScrubConfirm(target)
                 }
@@ -1487,12 +1622,12 @@ private fun RiftTimelineSeekBar(
             .pointerInput(safeDuration) {
                 detectHorizontalDragGestures(
                     onDragStart = { offset ->
-                        val fraction = (1f - (offset.x / size.width.toFloat())).coerceIn(0f, 1f)
+                        val fraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                         onScrubStart((fraction * safeDuration).toLong())
                     },
                     onHorizontalDrag = { change, _ ->
                         change.consume()
-                        val fraction = (1f - (change.position.x / size.width.toFloat())).coerceIn(0f, 1f)
+                        val fraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                         onScrubChange((fraction * safeDuration).toLong())
                     },
                     onDragEnd = {
@@ -1502,48 +1637,47 @@ private fun RiftTimelineSeekBar(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(if (focused || isTv) 10.dp else 6.dp)) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(if (focused || isTv) 9.dp else 7.dp)) {
             val trackHeight = size.height
             val corner = CornerRadius(trackHeight / 2f, trackHeight / 2f)
 
-            // Base unplayed track
+            // Base unplayed grey track
             drawRoundRect(
-                color = Color(0x44FFFFFF),
+                color = Color(0x52FFFFFF),
                 size = Size(size.width, trackHeight),
                 cornerRadius = corner,
             )
 
-            // Buffered progress (drawn RTL from right to left)
+            // Buffered progress (LTR)
             val bufferedWidth = size.width * bufferedFraction
             drawRoundRect(
-                color = Color(0x66A855F7),
-                topLeft = Offset(size.width - bufferedWidth, 0f),
+                color = Color(0x66FFFFFF),
+                topLeft = Offset(0f, 0f),
                 size = Size(bufferedWidth, trackHeight),
                 cornerRadius = corner,
             )
 
-            // Active playback progress (violet gradient RTL)
+            // Active playback progress (Eye-friendly Emerald -> Cyan -> Sky gradient)
             val activeWidth = size.width * progressFraction
             drawRoundRect(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(Color(0xFFC084FC), Color(0xFF7C3AED)),
+                    colors = listOf(Color(0xFF10B981), Color(0xFF06B6D4), Color(0xFF38BDF8)),
                 ),
-                topLeft = Offset(size.width - activeWidth, 0f),
+                topLeft = Offset(0f, 0f),
                 size = Size(activeWidth, trackHeight),
                 cornerRadius = corner,
             )
 
-            // Intro / Outro Interval Markers on the Seekbar
+            // Yellow (#F59E0B) Intro & Outro Skip Segments on the Seekbar
             val durationSec = safeDuration / 1000.0
             if (durationSec > 0.0) {
                 introInterval?.let { intro ->
                     val startFrac = (intro.startSeconds / durationSec).toFloat().coerceIn(0f, 1f)
                     val endFrac = (intro.endSeconds / durationSec).toFloat().coerceIn(0f, 1f)
-                    val segWidth = ((endFrac - startFrac) * size.width).coerceAtLeast(4f)
-                    val rightEdge = size.width * (1f - startFrac)
+                    val segWidth = ((endFrac - startFrac) * size.width).coerceAtLeast(6f)
                     drawRoundRect(
-                        color = Color(0xFFFACC15),
-                        topLeft = Offset((rightEdge - segWidth).coerceAtLeast(0f), 0f),
+                        color = Color(0xFFF59E0B),
+                        topLeft = Offset(size.width * startFrac, 0f),
                         size = Size(segWidth, trackHeight),
                         cornerRadius = corner,
                     )
@@ -1551,22 +1685,28 @@ private fun RiftTimelineSeekBar(
                 outroInterval?.let { outro ->
                     val startFrac = (outro.startSeconds / durationSec).toFloat().coerceIn(0f, 1f)
                     val endFrac = (outro.endSeconds / durationSec).toFloat().coerceIn(0f, 1f)
-                    val segWidth = ((endFrac - startFrac) * size.width).coerceAtLeast(4f)
-                    val rightEdge = size.width * (1f - startFrac)
+                    val segWidth = ((endFrac - startFrac) * size.width).coerceAtLeast(6f)
                     drawRoundRect(
-                        color = Color(0xFF38BDF8),
-                        topLeft = Offset((rightEdge - segWidth).coerceAtLeast(0f), 0f),
+                        color = Color(0xFFF59E0B),
+                        topLeft = Offset(size.width * startFrac, 0f),
                         size = Size(segWidth, trackHeight),
                         cornerRadius = corner,
                     )
                 }
             }
 
-            // Thumb indicator
-            val thumbX = (size.width * (1f - progressFraction)).coerceIn(0f, size.width)
+            // Sleek White-Ringed Emerald Thumb Indicator
+            val thumbX = (size.width * progressFraction).coerceIn(0f, size.width)
+            val outerRadius = if (focused || isTv) 10.5.dp.toPx() else 9.dp.toPx()
+            val innerRadius = if (focused || isTv) 7.5.dp.toPx() else 6.5.dp.toPx()
             drawCircle(
-                color = if (focused) Color(0xFFFACC15) else Color.White,
-                radius = if (focused || isTv) 8.dp.toPx() else 6.dp.toPx(),
+                color = Color.White,
+                radius = outerRadius,
+                center = Offset(thumbX, trackHeight / 2f),
+            )
+            drawCircle(
+                color = Color(0xFF10B981),
+                radius = innerRadius,
                 center = Offset(thumbX, trackHeight / 2f),
             )
         }
@@ -1847,6 +1987,95 @@ private fun RiftGlassCircleButton(
             color = Color.White,
             fontWeight = FontWeight.ExtraBold,
             fontSize = if (isPrimary) 18.sp else 12.sp,
+        )
+    }
+}
+
+@Composable
+private fun RiftDarkCircleIconButton(
+    iconText: String,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val bgColor = when {
+        focused -> Color(0xCC27272A)
+        active -> Color(0xD927272A)
+        else -> Color(0xB8121216)
+    }
+    val borderColor = when {
+        focused -> Color(0xFFFACC15)
+        active -> Color(0x88FFFFFF)
+        else -> Color(0x14FFFFFF)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(bgColor)
+            .border(1.dp, borderColor, CircleShape)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = iconText,
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun RiftSeek5CircleButton(
+    isForward: Boolean,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .size(54.dp)
+            .clip(CircleShape)
+            .background(if (focused) Color(0xCC27272A) else Color(0xA60E0E12))
+            .border(1.5.dp, if (focused) Color(0xFFFACC15) else Color(0x66FFFFFF), CircleShape)
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (isForward) "↻5" else "↺5",
+            color = Color.White,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp,
+        )
+    }
+}
+
+@Composable
+private fun RiftPlainIconButton(
+    label: String,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = if (focused || active) Color(0xFFFACC15) else Color.White,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 18.sp,
         )
     }
 }

@@ -1390,57 +1390,85 @@ export function RiftPlayer({
         return;
       }
 
-      if (e.key === "Escape" || e.key === "Backspace") {
+      if (e.key === "Escape" || e.key === "Backspace" || e.key === "GoBack") {
         if (activeDrawer !== "none") {
           e.preventDefault();
+          e.stopPropagation();
           setActiveDrawer("none");
           return;
         }
         if (showSubtitleStyleSheet) {
           e.preventDefault();
+          e.stopPropagation();
           setShowSubtitleStyleSheet(false);
           return;
         }
         if (controlsLocked) {
           e.preventDefault();
+          e.stopPropagation();
           setControlsLocked(false);
           showGestureHud("🔓 تم إلغاء قفل اللمس");
           return;
         }
       }
 
-      if (controlsLocked) return;
+      if (controlsLocked) {
+        if (
+          e.key === "Enter" ||
+          e.key === " " ||
+          e.key.startsWith("Arrow")
+        ) {
+          revealLockPrompt();
+        }
+        return;
+      }
+
+      const hudOrDrawerOpen =
+        controlsVisible || activeDrawer !== "none" || showSubtitleStyleSheet;
+      const isScrubberFocused =
+        document.activeElement?.getAttribute("data-testid") ===
+        "player-timeline-scrubber";
 
       switch (e.key) {
         case " ":
         case "k":
         case "MediaPlayPause":
-          e.preventDefault();
-          togglePlay();
+          if (!hudOrDrawerOpen || document.activeElement?.tagName !== "BUTTON") {
+            e.preventDefault();
+            togglePlay();
+            resetControlsAutoHideTimer();
+          }
+          break;
+        case "Enter":
+          if (!hudOrDrawerOpen) {
+            e.preventDefault();
+            resetControlsAutoHideTimer();
+          }
           break;
         case "ArrowLeft":
-          e.preventDefault();
-          triggerRelativeSeek(isTv ? -30 : -10);
+          if (!hudOrDrawerOpen || isScrubberFocused) {
+            e.preventDefault();
+            triggerRelativeSeek(isTv ? -15 : -10);
+          } else {
+            resetControlsAutoHideTimer();
+          }
           break;
         case "ArrowRight":
-          e.preventDefault();
-          triggerRelativeSeek(isTv ? 30 : 10);
+          if (!hudOrDrawerOpen || isScrubberFocused) {
+            e.preventDefault();
+            triggerRelativeSeek(isTv ? 15 : 10);
+          } else {
+            resetControlsAutoHideTimer();
+          }
           break;
         case "ArrowUp":
-          e.preventDefault();
-          setVolume((v) => {
-            const next = saveVolume(v + 0.08);
-            showGestureHud(`🔊 الصوت ${Math.round(next * 100)}%`);
-            return next;
-          });
-          break;
         case "ArrowDown":
-          e.preventDefault();
-          setVolume((v) => {
-            const next = saveVolume(v - 0.08);
-            showGestureHud(`🔊 الصوت ${Math.round(next * 100)}%`);
-            return next;
-          });
+          if (!hudOrDrawerOpen) {
+            e.preventDefault();
+            resetControlsAutoHideTimer();
+          } else {
+            resetControlsAutoHideTimer();
+          }
           break;
         case "m":
         case "M":
@@ -1461,18 +1489,21 @@ export function RiftPlayer({
       }
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
     activeDrawer,
     showSubtitleStyleSheet,
     controlsLocked,
+    controlsVisible,
     isTv,
     togglePlay,
     triggerRelativeSeek,
     toggleMute,
     toggleFullscreen,
     showGestureHud,
+    resetControlsAutoHideTimer,
+    revealLockPrompt,
   ]);
 
   // Pointer Gestures on Video Surface:
@@ -1728,6 +1759,11 @@ export function RiftPlayer({
       ref={containerRef}
       dir="rtl"
       data-testid="rift-player-root"
+      data-hud-visible={
+        controlsVisible || activeDrawer !== "none" || showSubtitleStyleSheet
+          ? "true"
+          : "false"
+      }
       data-orientation={landscapeLocked ? "landscape" : "portrait"}
       onPointerDown={(e) => {
         resetControlsAutoHideTimer();

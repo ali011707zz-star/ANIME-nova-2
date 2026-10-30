@@ -489,7 +489,7 @@ export function NovaAnimeCard({
         />
 
         {/* Top-Left Favorite Button or Score Pill */}
-        {!tvMode && !hideFavButton ? (
+        {!hideFavButton ? (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -622,7 +622,7 @@ export function NovaSectionRow({
   onToggleFav: (anime: Anime) => void;
   onSeeAll?: () => void;
 }) {
-  const { width: windowWidth, tv: tvMode, size: scaleSize } = useTvMetrics();
+  const { width: windowWidth, tv: tvMode, size: scaleSize, horizontalPadding } = useTvMetrics();
   const cardWidth = getRailCardWidth(windowWidth, tvMode ? 5 : 3);
 
   if (!items.length) return null;
@@ -631,7 +631,7 @@ export function NovaSectionRow({
     <div style={{ marginBottom: 24 }}>
       <div
         className="flex items-center justify-between"
-        style={{ paddingLeft: 16, paddingRight: 16, marginBottom: 12 }}
+        style={{ paddingLeft: horizontalPadding, paddingRight: horizontalPadding, marginBottom: 12 }}
       >
         <h3
           className="m-0"
@@ -683,9 +683,9 @@ export function NovaSectionRow({
 
       <div
         className="flex overflow-x-auto no-scrollbar"
-        style={{ paddingLeft: 16, paddingRight: 16, gap: 14 }}
+        style={{ paddingLeft: horizontalPadding, paddingRight: horizontalPadding, gap: 14 }}
       >
-        {items.slice(0, tvMode ? 10 : items.length).map((item) => (
+        {items.map((item) => (
           <NovaAnimeCard
             key={item.id}
             item={item}

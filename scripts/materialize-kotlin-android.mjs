@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -23,7 +24,7 @@ if (
   );
 }
 
-const catalogSource = readFileSync(catalogPath, "utf8");
+const catalogSource = readFileSync(catalogPath, "utf8").replace(/\r\n/g, "\n");
 const declaration =
   "const EMBEDDED_KOTLIN_ANDROID_PROJECT: KotlinSourceFile[] = ";
 const declarationStart = catalogSource.indexOf(declaration);
@@ -107,10 +108,18 @@ const listKotlinFiles = (directory) =>
 if (syncFromAndroid) {
   const staleDuplicateEntries = files
     .map((file, index) => ({ file, index }))
-    .filter(({ file }) => file.path.startsWith("app/app/"));
+    .filter(
+      ({ file }) =>
+        file.path.startsWith("app/app/") ||
+        !existsSync(resolve(androidRoot, file.path)),
+    );
   const sourceFiles = files
     .map((file, index) => ({ file, index }))
-    .filter(({ file }) => !file.path.startsWith("app/app/"))
+    .filter(
+      ({ file }) =>
+        !file.path.startsWith("app/app/") &&
+        existsSync(resolve(androidRoot, file.path)),
+    )
     .map(({ file, index }) => ({
       ...file,
       index,

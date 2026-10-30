@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Play,
   Bookmark,
@@ -9,6 +9,10 @@ import {
   Tv,
   ShieldCheck,
   ExternalLink,
+  Film,
+  BookOpen,
+  Smartphone,
+  CheckCircle2,
 } from "lucide-react";
 import { ThemePalette } from "../constants/novaColors";
 import { useTvMetrics } from "../utils/tv";
@@ -16,19 +20,38 @@ import { useTvMetrics } from "../utils/tv";
 export const TELEGRAM_CHANNEL_URL = "https://t.me/ANIME_N0VA";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   1. BrandSplash — Redesigned Luxury Cinema Startup Window
-      Keeps "ANIME" in #FFFFFF and "NOVA" in #38BDF8 while all other text is white
+   1. BrandSplash — Larger, Comprehensive & Ultra-Elegant Cinema Startup Screen
+      Keeps "ANIME" in #FFFFFF (or dark in light theme) and "NOVA" in #38BDF8
    ══════════════════════════════════════════════════════════════════════════ */
-export function BrandSplash({ onFinish }: { onFinish: () => void }) {
+export function BrandSplash({
+  colors,
+  onFinish,
+}: {
+  colors?: ThemePalette;
+  onFinish: () => void;
+}) {
+  const { tv: tvMode } = useTvMetrics();
   const [fadingOut, setFadingOut] = useState(false);
-  const [progress, setProgress] = useState(18);
+  const [progress, setProgress] = useState(22);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
+  const finishedRef = useRef(false);
+
+  const handleFinishOnce = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onFinishRef.current();
+  };
+
+  const isLight =
+    colors?.background === "#F8FAFC" || colors?.background === "#FFFFFF";
 
   useEffect(() => {
-    const step1 = setTimeout(() => setProgress(54), 350);
-    const step2 = setTimeout(() => setProgress(86), 850);
-    const step3 = setTimeout(() => setProgress(100), 1350);
-    const fadeTimer = setTimeout(() => setFadingOut(true), 1650);
-    const doneTimer = setTimeout(() => onFinish(), 2050);
+    const step1 = setTimeout(() => setProgress(58), 400);
+    const step2 = setTimeout(() => setProgress(88), 950);
+    const step3 = setTimeout(() => setProgress(100), 1450);
+    const fadeTimer = setTimeout(() => setFadingOut(true), 1850);
+    const doneTimer = setTimeout(() => handleFinishOnce(), 2200);
     return () => {
       clearTimeout(step1);
       clearTimeout(step2);
@@ -36,215 +59,367 @@ export function BrandSplash({ onFinish }: { onFinish: () => void }) {
       clearTimeout(fadeTimer);
       clearTimeout(doneTimer);
     };
-  }, [onFinish]);
+  }, []);
+
+  const statusLabel =
+    progress < 50
+      ? "جاري الاتصال بسيرفرات البث السحابية فائقة السرعة..."
+      : progress < 95
+      ? "جاري تجهيز مكتبة الأنمي والأفلام والمانجا المترجمة..."
+      : "اكتملت التهيئة بنجاح · جاهز للمشاهدة الفورية!";
+
+  const comprehensiveFeatures = [
+    {
+      icon: Play,
+      title: "أنمي مترجم وأفلام",
+      sub: "بث فوري 1080p FHD",
+      accent: "#38BDF8",
+    },
+    {
+      icon: Film,
+      title: "مدبلج وسبيستون",
+      sub: "أرشيف الكرتون والمدبلجات",
+      accent: "#10B981",
+    },
+    {
+      icon: BookOpen,
+      title: "مانجا ومانهوا",
+      sub: "قارئ فصول ذكي وملون",
+      accent: "#F59E0B",
+    },
+    {
+      icon: Download,
+      title: "تنزيل بلا إنترنت",
+      sub: "إيقاف واستئناف مباشر",
+      accent: "#A78BFA",
+    },
+    {
+      icon: Bookmark,
+      title: "مكتبتك السحابية",
+      sub: "المفضلة وسجل المشاهدة",
+      accent: "#F43F5E",
+    },
+    {
+      icon: Smartphone,
+      title: "للهاتف والتلفاز",
+      sub: "دعم كامل لـ Android TV",
+      accent: "#06B6D4",
+    },
+  ];
 
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 z-[100] flex items-center justify-center select-none overflow-hidden transition-opacity duration-400"
+      data-testid="brand-splash-screen"
+      className="fixed inset-0 z-[100] flex items-center justify-center select-none overflow-y-auto no-scrollbar transition-opacity duration-400"
       style={{
         opacity: fadingOut ? 0 : 1,
-        background:
-          "radial-gradient(circle at 50% 24%, rgba(14, 165, 233, 0.18) 0%, rgba(7, 9, 14, 0.96) 52%, #05070B 100%)",
-        paddingLeft: 22,
-        paddingRight: 22,
+        background: isLight
+          ? "radial-gradient(circle at 50% 18%, rgba(14, 165, 233, 0.16) 0%, rgba(241, 245, 249, 0.98) 55%, #E2E8F0 100%)"
+          : "radial-gradient(circle at 50% 18%, rgba(14, 165, 233, 0.22) 0%, rgba(7, 10, 18, 0.97) 54%, #04060B 100%)",
+        padding: tvMode ? "28px 32px" : "16px 14px",
       }}
     >
       {/* Ambient Decorative Glows */}
       <div
         className="pointer-events-none absolute rounded-full"
         style={{
-          width: 340,
-          height: 340,
-          top: -90,
-          right: -70,
+          width: 420,
+          height: 420,
+          top: -110,
+          right: -90,
           background:
-            "radial-gradient(circle, rgba(56, 189, 248, 0.16) 0%, rgba(56, 189, 248, 0) 70%)",
-          filter: "blur(24px)",
+            "radial-gradient(circle, rgba(56, 189, 248, 0.20) 0%, rgba(56, 189, 248, 0) 70%)",
+          filter: "blur(30px)",
         }}
       />
       <div
         className="pointer-events-none absolute rounded-full"
         style={{
-          width: 300,
-          height: 300,
-          bottom: -80,
-          left: -60,
+          width: 380,
+          height: 380,
+          bottom: -100,
+          left: -80,
           background:
-            "radial-gradient(circle, rgba(2, 132, 199, 0.14) 0%, rgba(2, 132, 199, 0) 70%)",
-          filter: "blur(24px)",
+            "radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(2, 132, 199, 0) 70%)",
+          filter: "blur(28px)",
         }}
       />
 
-      {/* Main Startup Cinema Card */}
+      {/* Larger, Comprehensive & Elegant Startup Showcase Window */}
       <div
+        data-testid="brand-splash-card"
         className="relative w-full flex flex-col items-center nova-anim-fade"
         style={{
-          maxWidth: 380,
-          borderRadius: 30,
-          paddingTop: 32,
-          paddingBottom: 26,
-          paddingLeft: 24,
-          paddingRight: 24,
-          background:
-            "linear-gradient(180deg, rgba(17, 23, 36, 0.92) 0%, rgba(10, 14, 23, 0.97) 100%)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          boxShadow:
-            "0 28px 64px -12px rgba(0, 0, 0, 0.85), 0 0 36px -10px rgba(56, 189, 248, 0.22)",
-          backdropFilter: "blur(20px)",
+          maxWidth: tvMode ? 680 : 480,
+          borderRadius: 32,
+          paddingTop: tvMode ? 34 : 26,
+          paddingBottom: tvMode ? 30 : 22,
+          paddingLeft: tvMode ? 32 : 20,
+          paddingRight: tvMode ? 32 : 20,
+          background: isLight
+            ? "linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.99) 100%)"
+            : "linear-gradient(180deg, rgba(15, 22, 36, 0.95) 0%, rgba(8, 12, 21, 0.98) 100%)",
+          border: isLight
+            ? "1.5px solid rgba(14, 165, 233, 0.28)"
+            : "1.5px solid rgba(56, 189, 248, 0.24)",
+          boxShadow: isLight
+            ? "0 28px 64px -12px rgba(15, 23, 42, 0.18), 0 0 36px -10px rgba(14, 165, 233, 0.18)"
+            : "0 32px 72px -12px rgba(0, 0, 0, 0.92), 0 0 44px -10px rgba(56, 189, 248, 0.26)",
+          backdropFilter: "blur(24px)",
         }}
       >
-        {/* Top Release Pill */}
-        <div
-          className="inline-flex items-center gap-1.5"
-          style={{
-            paddingLeft: 12,
-            paddingRight: 12,
-            paddingTop: 5,
-            paddingBottom: 5,
-            borderRadius: 999,
-            backgroundColor: "rgba(255, 255, 255, 0.07)",
-            border: "1px solid rgba(255, 255, 255, 0.14)",
-            marginBottom: 20,
-          }}
-        >
-          <Sparkles size={12} color="#FFFFFF" />
-          <span
+        {/* Top Comprehensive Header Strip */}
+        <div className="w-full flex items-center justify-between gap-2 mb-5">
+          <div
+            className="inline-flex items-center gap-1.5"
             style={{
-              fontSize: 11,
-              fontWeight: 800,
-              color: "#FFFFFF",
-              letterSpacing: "0.3px",
+              paddingLeft: 12,
+              paddingRight: 12,
+              paddingTop: 5,
+              paddingBottom: 5,
+              borderRadius: 999,
+              backgroundColor: isLight
+                ? "rgba(14, 165, 233, 0.10)"
+                : "rgba(56, 189, 248, 0.12)",
+              border: isLight
+                ? "1px solid rgba(14, 165, 233, 0.28)"
+                : "1px solid rgba(56, 189, 248, 0.30)",
             }}
           >
-            الإصدار السينمائي · V3.4
-          </span>
-        </div>
+            <Sparkles size={13} color="#0EA5E9" />
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 900,
+                color: isLight ? "#0369A1" : "#E0F2FE",
+                letterSpacing: "0.2px",
+              }}
+            >
+              الإصدار السينمائي الشامل · V3.5
+            </span>
+          </div>
 
-        {/* Official Nova Mobile App Icon (IMG_20261025_020007_932_0a013fb3.jpg) */}
-        <div className="relative flex items-center justify-center mb-5">
           <div
-            className="absolute rounded-[34px]"
+            className="inline-flex items-center gap-1.5"
             style={{
-              width: 156,
-              height: 156,
-              background:
-                "radial-gradient(circle, rgba(139, 92, 246, 0.38) 0%, rgba(56, 189, 248, 0.18) 50%, rgba(0, 0, 0, 0) 75%)",
-              filter: "blur(8px)",
-            }}
-          />
-          <div
-            className="relative flex items-center justify-center overflow-hidden"
-            style={{
-              width: 132,
-              height: 132,
-              borderRadius: 30,
-              backgroundColor: "#06050B",
-              border: "1.5px solid rgba(167, 139, 250, 0.45)",
-              boxShadow:
-                "0 18px 42px rgba(0, 0, 0, 0.82), 0 0 28px rgba(139, 92, 246, 0.32)",
+              paddingLeft: 10,
+              paddingRight: 10,
+              paddingTop: 5,
+              paddingBottom: 5,
+              borderRadius: 999,
+              backgroundColor: isLight
+                ? "rgba(16, 185, 129, 0.10)"
+                : "rgba(16, 185, 129, 0.14)",
+              border: "1px solid rgba(16, 185, 129, 0.32)",
             }}
           >
-            <img
-              src="/assets/aistudio/IMG_20261025_020007_932_0a013fb3.jpg"
-              alt="Anime NOVA Official Icon"
-              className="w-full h-full object-cover"
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: "#10B981" }}
             />
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 800,
+                color: isLight ? "#047857" : "#6EE7B7",
+              }}
+            >
+              خوادم البث متصلة
+            </span>
           </div>
         </div>
 
-        {/* Brand Logo — ONLY "NOVA" stays blue (#38BDF8) per user specification */}
-        <div
-          dir="ltr"
-          className="flex items-center justify-center gap-2"
-          style={{
-            fontSize: 30,
-            fontWeight: 900,
-            letterSpacing: "2px",
-            lineHeight: "36px",
-          }}
-        >
-          <span style={{ color: "#FFFFFF" }}>ANIME</span>
-          <span
+        {/* Hero Centerpiece: Official Nova Emblem + Brand Identity */}
+        <div className="w-full flex flex-col items-center">
+          <div className="relative flex items-center justify-center mb-4">
+            <div
+              className="absolute rounded-[38px]"
+              style={{
+                width: tvMode ? 176 : 156,
+                height: tvMode ? 176 : 156,
+                background:
+                  "radial-gradient(circle, rgba(56, 189, 248, 0.36) 0%, rgba(16, 185, 129, 0.18) 52%, rgba(0, 0, 0, 0) 75%)",
+                filter: "blur(10px)",
+              }}
+            />
+            <div
+              className="relative flex items-center justify-center overflow-hidden"
+              style={{
+                width: tvMode ? 148 : 132,
+                height: tvMode ? 148 : 132,
+                borderRadius: 32,
+                backgroundColor: "#06050B",
+                border: "2px solid rgba(56, 189, 248, 0.55)",
+                boxShadow:
+                  "0 20px 44px rgba(0, 0, 0, 0.78), 0 0 30px rgba(56, 189, 248, 0.32)",
+              }}
+            >
+              <img
+                src="/assets/aistudio/IMG_20261025_020007_932_0a013fb3.jpg"
+                alt="Anime NOVA Official Icon"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Floating FHD Quality Badge */}
+            <div
+              dir="ltr"
+              className="absolute -bottom-2 px-3 py-1 rounded-full flex items-center gap-1"
+              style={{
+                background: "linear-gradient(90deg, #0284C7 0%, #10B981 100%)",
+                border: "1.5px solid rgba(255, 255, 255, 0.45)",
+                boxShadow: "0 6px 16px rgba(2, 132, 199, 0.45)",
+              }}
+            >
+              <CheckCircle2 size={11} color="#FFFFFF" />
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 900,
+                  color: "#FFFFFF",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                1080p FHD · ARABIC
+              </span>
+            </div>
+          </div>
+
+          {/* Brand Logo */}
+          <div
+            dir="ltr"
+            className="flex items-center justify-center gap-2.5 mt-2"
             style={{
-              color: "#38BDF8",
-              textShadow: "0 0 18px rgba(56, 189, 248, 0.45)",
+              fontSize: tvMode ? 38 : 33,
+              fontWeight: 900,
+              letterSpacing: "2.2px",
+              lineHeight: "40px",
             }}
           >
-            NOVA
-          </span>
+            <span style={{ color: isLight ? "#0F172A" : "#FFFFFF" }}>ANIME</span>
+            <span
+              style={{
+                color: isLight ? "#0284C7" : "#38BDF8",
+                textShadow: isLight
+                  ? "none"
+                  : "0 0 20px rgba(56, 189, 248, 0.45)",
+              }}
+            >
+              NOVA
+            </span>
+          </div>
+
+          <p
+            className="m-0 mt-1.5 text-center"
+            style={{
+              fontSize: tvMode ? 15 : 13.5,
+              fontWeight: 800,
+              color: isLight ? "#1E293B" : "#F8FAFC",
+            }}
+          >
+            المنصة العربية الشاملة للأنمي والمدبلجات وأفلام الأنمي والمانجا
+          </p>
+          <p
+            className="m-0 mt-1 text-center"
+            style={{
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: isLight ? "#64748B" : "rgba(226, 232, 240, 0.72)",
+            }}
+          >
+            مشاهدة فورية بدون تقطيع · تخطي ذكي للمقدمات · تحميل ومزامنة سحابية
+          </p>
         </div>
 
-        <p
-          className="m-0 mt-2 text-center"
-          style={{
-            fontSize: 13.5,
-            fontWeight: 700,
-            color: "#FFFFFF",
-            opacity: 0.9,
-          }}
-        >
-          منصة الأنمي والمدبلجات العربية الأولى
-        </p>
-
-        {/* Feature Capsules */}
+        {/* Comprehensive 6-Pillar Bento Grid */}
         <div
-          className="w-full grid grid-cols-3 gap-2"
-          style={{ marginTop: 22, marginBottom: 22 }}
+          className="w-full grid grid-cols-2 sm:grid-cols-3 gap-2.5"
+          style={{ marginTop: 18, marginBottom: 18 }}
         >
-          {[
-            { icon: Play, label: "بث فوري" },
-            { icon: Bookmark, label: "مكتبتك الخاصة" },
-            { icon: Download, label: "تحميل مباشر" },
-          ].map((item, idx) => {
+          {comprehensiveFeatures.map((item, idx) => {
             const Icon = item.icon;
             return (
               <div
                 key={idx}
-                className="flex flex-col items-center justify-center gap-1.5"
+                className="flex items-center gap-2.5 p-2.5 rounded-2xl"
                 style={{
-                  paddingTop: 10,
-                  paddingBottom: 10,
-                  paddingLeft: 8,
-                  paddingRight: 8,
-                  borderRadius: 14,
-                  backgroundColor: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.10)",
+                  backgroundColor: isLight
+                    ? "rgba(241, 245, 249, 0.9)"
+                    : "rgba(255, 255, 255, 0.045)",
+                  border: isLight
+                    ? "1px solid rgba(15, 23, 42, 0.09)"
+                    : "1px solid rgba(255, 255, 255, 0.09)",
                 }}
               >
-                <Icon size={15} color="#FFFFFF" />
-                <span
+                <div
+                  className="flex items-center justify-center shrink-0"
                   style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: "#FFFFFF",
-                    textAlign: "center",
+                    width: 34,
+                    height: 34,
+                    borderRadius: 11,
+                    backgroundColor: `${item.accent}20`,
+                    border: `1px solid ${item.accent}45`,
                   }}
                 >
-                  {item.label}
-                </span>
+                  <Icon size={16} color={item.accent} />
+                </div>
+                <div className="min-w-0 flex-1 text-right">
+                  <div
+                    className="line-clamp-1"
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 900,
+                      color: isLight ? "#0F172A" : "#FFFFFF",
+                    }}
+                  >
+                    {item.title}
+                  </div>
+                  <div
+                    className="line-clamp-1"
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      color: isLight ? "#64748B" : "rgba(203, 213, 225, 0.75)",
+                    }}
+                  >
+                    {item.sub}
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Smooth Progress Loader + Skip Button */}
-        <div className="w-full flex flex-col gap-2">
-          <div className="flex items-center justify-between">
+        {/* Smooth Progress Loader + Direct Enter CTA */}
+        <div
+          className="w-full p-3.5 rounded-2xl flex flex-col gap-2.5"
+          style={{
+            backgroundColor: isLight
+              ? "rgba(241, 245, 249, 0.95)"
+              : "rgba(255, 255, 255, 0.04)",
+            border: isLight
+              ? "1px solid rgba(15, 23, 42, 0.08)"
+              : "1px solid rgba(255, 255, 255, 0.08)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-2">
             <span
+              className="line-clamp-1"
               style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "rgba(255, 255, 255, 0.85)",
+                fontSize: 11.5,
+                fontWeight: 800,
+                color: isLight ? "#334155" : "rgba(255, 255, 255, 0.88)",
               }}
             >
-              جاري تهيئة السيرفرات والمكتبة...
+              {statusLabel}
             </span>
             <span
+              dir="ltr"
               style={{
-                fontSize: 11,
-                fontWeight: 800,
-                color: "#FFFFFF",
+                fontSize: 12,
+                fontWeight: 900,
+                color: isLight ? "#0284C7" : "#38BDF8",
               }}
             >
               {progress}%
@@ -253,9 +428,11 @@ export function BrandSplash({ onFinish }: { onFinish: () => void }) {
           <div
             className="w-full overflow-hidden"
             style={{
-              height: 6,
+              height: 8,
               borderRadius: 999,
-              backgroundColor: "rgba(255, 255, 255, 0.10)",
+              backgroundColor: isLight
+                ? "rgba(15, 23, 42, 0.10)"
+                : "rgba(255, 255, 255, 0.10)",
             }}
           >
             <div
@@ -263,29 +440,30 @@ export function BrandSplash({ onFinish }: { onFinish: () => void }) {
               style={{
                 width: `${progress}%`,
                 borderRadius: 999,
-                background: "linear-gradient(90deg, #FFFFFF 0%, #38BDF8 100%)",
+                background:
+                  "linear-gradient(90deg, #06B6D4 0%, #38BDF8 55%, #10B981 100%)",
+                boxShadow: "0 0 12px rgba(56, 189, 248, 0.5)",
               }}
             />
           </div>
         </div>
 
         <button
-          onClick={onFinish}
-          className="mt-4 cursor-pointer active:scale-95 transition-transform"
+          type="button"
+          data-testid="brand-splash-enter-btn"
+          onClick={handleFinishOnce}
+          className="w-full mt-3.5 py-3 px-5 cursor-pointer active:scale-[0.99] transition-transform flex items-center justify-center gap-2"
           style={{
-            paddingLeft: 16,
-            paddingRight: 16,
-            paddingTop: 6,
-            paddingBottom: 6,
-            borderRadius: 999,
-            backgroundColor: "rgba(255, 255, 255, 0.06)",
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            fontSize: 11.5,
-            fontWeight: 700,
+            borderRadius: 16,
+            background: "linear-gradient(135deg, #0284C7 0%, #0EA5E9 55%, #10B981 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.28)",
+            boxShadow: "0 10px 24px -6px rgba(14, 165, 233, 0.45)",
+            fontSize: 13,
+            fontWeight: 900,
             color: "#FFFFFF",
           }}
         >
-          تخطي والدخول الآن
+          <span>الدخول إلى التطبيق الآن</span>
         </button>
       </div>
     </div>
@@ -293,8 +471,8 @@ export function BrandSplash({ onFinish }: { onFinish: () => void }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   2. TelegramAnnouncementModal — Redesigned Executive Community Modal
-      All typography is crisp white (#FFFFFF) with cinema video preview
+   2. TelegramAnnouncementModal — Theme-Aware Executive Community Modal
+      Dynamically adapts to Light Theme (أبيض ساطع) and Dark Theme (OLED)
    ══════════════════════════════════════════════════════════════════════════ */
 export function TelegramAnnouncementModal({
   visible,
@@ -311,6 +489,22 @@ export function TelegramAnnouncementModal({
 
   if (!visible) return null;
 
+  const isLight =
+    colors?.background === "#F8FAFC" || colors?.background === "#FFFFFF";
+
+  const modalBg = isLight ? "#FFFFFF" : colors?.surface || "#0B0F19";
+  const modalBorder = isLight
+    ? colors?.border || "#E2E8F0"
+    : "rgba(255, 255, 255, 0.14)";
+  const primaryText = isLight ? "#0F172A" : "#FFFFFF";
+  const secondaryText = isLight ? "#334155" : "rgba(255, 255, 255, 0.90)";
+  const chipBg = isLight
+    ? colors?.input || "#F1F5F9"
+    : "rgba(255, 255, 255, 0.05)";
+  const chipBorder = isLight
+    ? colors?.border || "#E2E8F0"
+    : "rgba(255, 255, 255, 0.10)";
+
   const handleClose = () => {
     if (onClose) onClose();
     if (onDismiss) onDismiss();
@@ -319,9 +513,12 @@ export function TelegramAnnouncementModal({
   return (
     <div
       dir="rtl"
+      data-testid="telegram-announcement-modal"
       className="fixed inset-0 z-[90] flex items-center justify-center select-none nova-anim-fade"
       style={{
-        backgroundColor: "rgba(4, 6, 12, 0.82)",
+        backgroundColor: isLight
+          ? "rgba(15, 23, 42, 0.55)"
+          : "rgba(4, 6, 12, 0.82)",
         backdropFilter: "blur(12px)",
         paddingLeft: 18,
         paddingRight: 18,
@@ -329,14 +526,16 @@ export function TelegramAnnouncementModal({
       onClick={handleClose}
     >
       <div
+        data-testid="telegram-modal-card"
         className="w-full relative overflow-hidden"
         style={{
-          maxWidth: tvMode ? 520 : 390,
+          maxWidth: tvMode ? 520 : 400,
           borderRadius: 28,
-          backgroundColor: "#0B0F19",
-          border: "1px solid rgba(255, 255, 255, 0.14)",
-          boxShadow:
-            "0 28px 65px -10px rgba(0, 0, 0, 0.88), 0 0 32px -10px rgba(255, 255, 255, 0.12)",
+          backgroundColor: modalBg,
+          border: `1.5px solid ${modalBorder}`,
+          boxShadow: isLight
+            ? "0 24px 54px -10px rgba(15, 23, 42, 0.22)"
+            : "0 28px 65px -10px rgba(0, 0, 0, 0.88), 0 0 32px -10px rgba(255, 255, 255, 0.12)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -362,7 +561,7 @@ export function TelegramAnnouncementModal({
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                "linear-gradient(180deg, rgba(11,15,25,0.45) 0%, rgba(11,15,25,0.15) 45%, rgba(11,15,25,0.98) 100%)",
+                "linear-gradient(180deg, rgba(11,15,25,0.42) 0%, rgba(11,15,25,0.18) 45%, rgba(11,15,25,0.92) 100%)",
             }}
           />
 
@@ -376,8 +575,12 @@ export function TelegramAnnouncementModal({
                 paddingTop: 5,
                 paddingBottom: 5,
                 borderRadius: 999,
-                backgroundColor: "rgba(11, 15, 25, 0.78)",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
+                backgroundColor: isLight
+                  ? "rgba(255, 255, 255, 0.92)"
+                  : "rgba(11, 15, 25, 0.78)",
+                border: isLight
+                  ? "1px solid rgba(15, 23, 42, 0.14)"
+                  : "1px solid rgba(255, 255, 255, 0.18)",
                 backdropFilter: "blur(10px)",
               }}
             >
@@ -389,7 +592,7 @@ export function TelegramAnnouncementModal({
                 style={{
                   fontSize: 11,
                   fontWeight: 800,
-                  color: "#FFFFFF",
+                  color: isLight ? "#0F172A" : "#FFFFFF",
                 }}
               >
                 القناة الرسمية · مجتمع ANIME NOVA
@@ -397,6 +600,7 @@ export function TelegramAnnouncementModal({
             </div>
 
             <button
+              type="button"
               onClick={handleClose}
               aria-label="إغلاق"
               className="flex items-center justify-center cursor-pointer active:scale-90 transition-transform"
@@ -404,28 +608,29 @@ export function TelegramAnnouncementModal({
                 width: 34,
                 height: 34,
                 borderRadius: 999,
-                backgroundColor: "rgba(11, 15, 25, 0.78)",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
+                backgroundColor: isLight
+                  ? "rgba(255, 255, 255, 0.92)"
+                  : "rgba(11, 15, 25, 0.78)",
+                border: isLight
+                  ? "1px solid rgba(15, 23, 42, 0.14)"
+                  : "1px solid rgba(255, 255, 255, 0.18)",
                 backdropFilter: "blur(10px)",
               }}
             >
-              <X size={17} color="#FFFFFF" />
+              <X size={17} color={isLight ? "#0F172A" : "#FFFFFF"} />
             </button>
           </div>
 
           {/* Floating Telegram Emblem at Bottom-Right of Video */}
-          <div
-            className="absolute bottom-3 right-4 flex items-center gap-2.5"
-          >
+          <div className="absolute bottom-3 right-4 flex items-center gap-2.5">
             <div
               className="flex items-center justify-center"
               style={{
                 width: 44,
                 height: 44,
                 borderRadius: 14,
-                background:
-                  "linear-gradient(135deg, #0284C7 0%, #0369A1 100%)",
-                border: "1.5px solid rgba(255, 255, 255, 0.28)",
+                background: "linear-gradient(135deg, #0284C7 0%, #0369A1 100%)",
+                border: "1.5px solid rgba(255, 255, 255, 0.32)",
                 boxShadow: "0 8px 20px rgba(0, 0, 0, 0.5)",
               }}
             >
@@ -446,7 +651,7 @@ export function TelegramAnnouncementModal({
                 style={{
                   fontSize: 11.5,
                   fontWeight: 700,
-                  color: "rgba(255, 255, 255, 0.8)",
+                  color: "rgba(255, 255, 255, 0.85)",
                 }}
               >
                 إشعارات الحلقات الفورية والتحديثات
@@ -455,13 +660,14 @@ export function TelegramAnnouncementModal({
           </div>
         </div>
 
-        {/* Body Content */}
+        {/* Theme-Adaptive Body Content */}
         <div
           style={{
-            paddingTop: 14,
+            paddingTop: 16,
             paddingBottom: 20,
             paddingLeft: 18,
             paddingRight: 18,
+            backgroundColor: modalBg,
           }}
         >
           <p
@@ -469,13 +675,13 @@ export function TelegramAnnouncementModal({
             style={{
               fontSize: tvMode ? 15 : 13,
               lineHeight: tvMode ? "24px" : "21px",
-              color: "#FFFFFF",
-              opacity: 0.92,
+              color: secondaryText,
               textAlign: "right",
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
-            احصل على تنبيهات الحلقات الجديدة فور صدورها، روابط تحميل التحديثات المباشرة، ودعم فني سريع عبر قناتنا الرسمية على تلجرام.
+            احصل على تنبيهات الحلقات الجديدة فور صدورها، روابط تحميل التحديثات
+            المباشرة، ودعم فني سريع عبر قناتنا الرسمية على تلجرام.
           </p>
 
           {/* Highlights Row */}
@@ -485,16 +691,16 @@ export function TelegramAnnouncementModal({
               style={{
                 padding: "9px 11px",
                 borderRadius: 12,
-                backgroundColor: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid rgba(255, 255, 255, 0.10)",
+                backgroundColor: chipBg,
+                border: `1px solid ${chipBorder}`,
               }}
             >
-              <Tv size={15} color="#FFFFFF" />
+              <Tv size={15} color={isLight ? "#0284C7" : "#38BDF8"} />
               <span
                 style={{
                   fontSize: 11.5,
                   fontWeight: 800,
-                  color: "#FFFFFF",
+                  color: primaryText,
                 }}
               >
                 تنبيهات الحلقات يومياً
@@ -505,16 +711,16 @@ export function TelegramAnnouncementModal({
               style={{
                 padding: "9px 11px",
                 borderRadius: 12,
-                backgroundColor: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid rgba(255, 255, 255, 0.10)",
+                backgroundColor: chipBg,
+                border: `1px solid ${chipBorder}`,
               }}
             >
-              <ShieldCheck size={15} color="#FFFFFF" />
+              <ShieldCheck size={15} color="#10B981" />
               <span
                 style={{
                   fontSize: 11.5,
                   fontWeight: 800,
-                  color: "#FFFFFF",
+                  color: primaryText,
                 }}
               >
                 تحديثات رسمية مباشرة
@@ -533,10 +739,9 @@ export function TelegramAnnouncementModal({
               style={{
                 height: 46,
                 borderRadius: 14,
-                background:
-                  "linear-gradient(135deg, #0284C7 0%, #0369A1 100%)",
+                background: "linear-gradient(135deg, #0284C7 0%, #0369A1 100%)",
                 border: "1px solid rgba(255, 255, 255, 0.22)",
-                boxShadow: "0 10px 24px -6px rgba(2, 132, 199, 0.55)",
+                boxShadow: "0 10px 24px -6px rgba(2, 132, 199, 0.45)",
               }}
             >
               <Send size={17} color="#FFFFFF" />
@@ -553,18 +758,21 @@ export function TelegramAnnouncementModal({
             </a>
 
             <button
+              type="button"
+              data-testid="telegram-continue-btn"
+              autoFocus
               onClick={handleClose}
               className="w-full flex items-center justify-center cursor-pointer active:scale-[0.99] transition-transform"
               style={{
                 height: 42,
                 borderRadius: 14,
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
+                backgroundColor: chipBg,
+                border: `1px solid ${chipBorder}`,
               }}
             >
               <span
                 style={{
-                  color: "#FFFFFF",
+                  color: primaryText,
                   fontSize: tvMode ? 15 : 13,
                   fontWeight: 800,
                 }}

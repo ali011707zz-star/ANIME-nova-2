@@ -4,10 +4,10 @@ export interface Episode {
   title: string;
   titleAr: string;
   duration: string;
-  videoUrl: string;
+  videoUrl?: string;
   thumbnail: string;
-  synopsis: string;
-  synopsisAr: string;
+  synopsis?: string;
+  synopsisAr?: string;
 }
 
 export interface Character {
@@ -23,11 +23,12 @@ export interface Anime {
   title: string;
   titleAr: string;
   titleJp: string;
+  englishTitle?: string;
   synopsis: string;
   synopsisAr: string;
   score: number;
   year: number;
-  status: 'Airing' | 'Completed' | 'Upcoming';
+  status: 'Airing' | 'Completed' | 'Upcoming' | 'airing' | 'completed' | 'upcoming';
   statusAr: string;
   genres: string[];
   genresAr: string[];
@@ -41,6 +42,7 @@ export interface Anime {
   episodes: Episode[];
   characters: Character[];
   featured?: boolean;
+  cover?: string;
   coverImage?: string;
   bannerImage?: string;
   anilistId?: number;

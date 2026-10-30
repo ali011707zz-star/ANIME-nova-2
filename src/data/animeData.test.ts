@@ -1,5 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   extractYoutubeId,
   getYoutubeThumbUrl,
@@ -9,6 +11,10 @@ import {
   CARTOON_SERIES,
   STARDIMA_SERIES,
 } from "./animeData";
+import {
+  EMBEDDED_KOTLIN_ANDROID_PROJECT,
+  KOTLIN_ANDROID_PROJECT,
+} from "./kotlinCodebase";
 
 describe("Anime NOVA Pure Logic & Catalog Contracts", () => {
   it("extracts valid 11-char YouTube IDs from raw IDs and watch/embed URLs", () => {
@@ -69,6 +75,25 @@ describe("Anime NOVA Pure Logic & Catalog Contracts", () => {
       assert.ok(sd.seasons[0].episodes.length >= 1);
       assert.ok(sd.seasons[0].episodes[0].qualities.length >= 1);
       assert.ok(sd.seasons[0].episodes[0].qualities[0].servers.length >= 1);
+    }
+  });
+
+  it("keeps EMBEDDED_KOTLIN_ANDROID_PROJECT synchronized with nova2-android source tree", () => {
+    assert.strictEqual(EMBEDDED_KOTLIN_ANDROID_PROJECT, KOTLIN_ANDROID_PROJECT);
+    assert.ok(EMBEDDED_KOTLIN_ANDROID_PROJECT.length >= 30);
+    const seenPaths = new Set<string>();
+    for (const entry of EMBEDDED_KOTLIN_ANDROID_PROJECT) {
+      assert.ok(!seenPaths.has(entry.path), `Duplicate path ${entry.path}`);
+      seenPaths.add(entry.path);
+      const diskContent = readFileSync(
+        resolve(process.cwd(), "nova2-android", entry.path),
+        "utf8"
+      );
+      assert.equal(
+        entry.code,
+        diskContent,
+        `Embedded file ${entry.path} must match nova2-android/${entry.path}`
+      );
     }
   });
 });

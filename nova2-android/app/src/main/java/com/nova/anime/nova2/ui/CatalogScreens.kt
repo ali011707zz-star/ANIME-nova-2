@@ -4,7 +4,9 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -99,17 +102,18 @@ fun HomeScreen(
     onOpenDetails: (Int) -> Unit,
     onOpenEpisodes: (Int) -> Unit,
     onOpenWatch: (Int, Int) -> Unit,
-    onOpenLatestEpisodes: () -> Unit,
-    onOpenSeasons: () -> Unit,
-    onOpenComingSoon: () -> Unit,
-    onOpenTvLink: () -> Unit,
+    onOpenLatestEpisodes: () -> Unit = {},
+    onOpenSeasons: () -> Unit = {},
+    onOpenGlobalStats: () -> Unit = {},
+    onOpenComingSoon: () -> Unit = {},
+    onOpenTvLink: () -> Unit = {},
     onOpenBrowse: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenDubbed: () -> Unit,
-    onOpenDownloads: () -> Unit,
+    onOpenDownloads: () -> Unit = {},
     onOpenAnimations: () -> Unit,
-    onOpenManga: () -> Unit,
     onOpenStardima: () -> Unit,
+    onOpenManga: () -> Unit = {},
     onOpenSchedule: () -> Unit,
     onOpenGlobalStats: () -> Unit,
     onOpenNews: () -> Unit,
@@ -159,6 +163,7 @@ fun HomeScreen(
                         "بحث" -> onOpenSearch()
                         "أحدث الحلقات" -> onOpenLatestEpisodes()
                         "المواسم" -> onOpenSeasons()
+                        "الاحصائيات العالمية" -> onOpenGlobalStats()
                         "قريبًا" -> onOpenComingSoon()
                         "ربط التلفاز" -> onOpenTvLink()
                         "تنزيلاتي" -> onOpenDownloads()
@@ -294,9 +299,16 @@ private fun LatestEpisodesRail(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(episodes, key = { "${it.anilistId}-${it.episode}-${it.sourceSite}" }) { ep ->
+                var focused by remember { mutableStateOf(false) }
                 Card(
                     modifier = Modifier
                         .width(if (layout.isTv) 220.dp else 160.dp)
+                        .onFocusChanged { focused = it.isFocused }
+                        .focusable()
+                        .then(
+                            if (focused) Modifier.border(BorderStroke(2.5.dp, Color(0xFF38BDF8)), RoundedCornerShape(12.dp))
+                            else Modifier
+                        )
                         .clickable { onOpenWatch(ep.anilistId, ep.episode) },
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 ) {
@@ -380,9 +392,16 @@ private fun ContinueWatchingRail(
                 } else {
                     13
                 }
+                var focused by remember { mutableStateOf(false) }
                 Card(
                     modifier = Modifier
                         .width(if (layout.isTv) 200.dp else 168.dp)
+                        .onFocusChanged { focused = it.isFocused }
+                        .focusable()
+                        .then(
+                            if (focused) Modifier.border(BorderStroke(2.5.dp, Color(0xFF38BDF8)), RoundedCornerShape(14.dp))
+                            else Modifier
+                        )
                         .clickable { onResume(entry) },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -815,6 +834,96 @@ fun ComingSoonScreen(
 }
 
 @Composable
+fun GlobalStatsScreen(
+    repository: AnilistRepository,
+    onOpenDetails: (Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    val tabs = remember {
+        listOf(
+            "top_all" to "أفضل الأنميات",
+            "top_airing" to "أفضل الأنميات المستمرة",
+            "top_movies" to "أفضل الأفلام",
+            "top_tv" to "أفضل المسلسلات",
+            "top_ova" to "أفضل الاوفا",
+            "top_ona" to "أفضل الاونا",
+        )
+    }
+    var selectedTab by rememberSaveable { mutableStateOf("top_all") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<AnimeCard>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(selectedTab, query) {
+        delay(200L)
+        loading = true
+        error = null
+        val formatFilter = when (selectedTab) {
+            "top_movies" -> "MOVIE"
+            "top_tv" -> "TV"
+            "top_ova" -> "OVA"
+            "top_ona" -> "ONA"
+            else -> null
+        }
+        val statusFilter = if (selectedTab == "top_airing") "RELEASING" else null
+        runCatching {
+            repository.browse(
+                BrowseFilters(
+                    search = query.trim().takeIf { it.isNotEmpty() },
+                    sort = "SCORE_DESC",
+                    format = formatFilter,
+                    status = statusFilter,
+                ),
+                1,
+            )
+        }.onSuccess { results = it }
+            .onFailure { error = it.message ?: "تعذر تحميل الاحصائيات العالمية" }
+        loading = false
+    }
+
+    CatalogScaffold(title = "الاحصائيات العالمية", onBack = onBack) {
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("ابحث في الإحصائيات العالمية...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(tabs, key = { it.first }) { (tabId, label) ->
+                    FilterChip(
+                        selected = selectedTab == tabId,
+                        onClick = { selectedTab = tabId },
+                        label = { Text(label, fontWeight = FontWeight.Bold) },
+                    )
+                }
+            }
+        }
+        if (loading && results.isEmpty()) item { LoadingBlock() }
+        error?.let { item { ErrorBlock(it) } }
+        if (!loading && error == null && results.isEmpty()) {
+            item {
+                Text(
+                    "لا توجد نتائج مطابقة في هذا التصنيف",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (results.isNotEmpty()) {
+            item { NovaAnimeGrid(results, onOpenDetails) }
+        }
+    }
+}
+
+@Composable
 fun TvLinkScreen(
     sessionViewModel: SessionViewModel,
     onBack: () -> Unit,
@@ -1119,6 +1228,8 @@ fun DetailsScreen(
                             )
                         }
 
+                        var showTrailerDialog by remember(id) { mutableStateOf(false) }
+
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1140,6 +1251,176 @@ fun DetailsScreen(
                                 Spacer(Modifier.width(6.dp))
                                 Text(if (favorite) "في المفضلة" else "أضف للمفضلة")
                             }
+                        }
+
+                        // Official Trailer Section (بدون كلمة عرض أفقي كامل + تصميم سينمائي من الداخل والأعلى)
+                        Spacer(Modifier.height(18.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("الإعلان الدعائي الرسمي", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                shape = RoundedCornerShape(999.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            ) {
+                                Text(
+                                    text = "1080p HD · رسمي",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                )
+                            }
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp)
+                                .clickable { showTrailerDialog = true },
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1017)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(176.dp),
+                            ) {
+                                AsyncImage(
+                                    model = item.card.bannerUrl ?: item.card.coverUrl,
+                                    contentDescription = "العرض الدعائي",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color(0x99050811)),
+                                )
+                                Surface(
+                                    color = Color(0xFF0EA5E9),
+                                    shape = RoundedCornerShape(999.dp),
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .align(Alignment.Center),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("▶", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                                    }
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(14.dp),
+                                ) {
+                                    Text(
+                                        text = "العرض التشويقي الرسمي (YouTube HD)",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.ExtraBold,
+                                    )
+                                    Text(
+                                        text = "مشغل دعائي سينمائي فائق الوضوح — اضغط للمشاهدة",
+                                        color = Color(0xFFCBD5E1),
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (showTrailerDialog) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { showTrailerDialog = false },
+                                containerColor = Color(0xFF080D18),
+                                title = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        AsyncImage(
+                                            model = item.card.coverUrl,
+                                            contentDescription = item.card.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .width(36.dp)
+                                                .height(50.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "OFFICIAL TRAILER · 1080p HD",
+                                                color = Color(0xFF38BDF8),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                            )
+                                            Text(
+                                                text = item.card.arabicTitle ?: item.card.title,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 15.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(190.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(Color.Black),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            AsyncImage(
+                                                model = item.card.bannerUrl ?: item.card.coverUrl,
+                                                contentDescription = item.card.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color(0xAA000000)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = "▶ العرض الدعائي الرسمي 1080p HD",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = "★ ${item.card.score?.let { "%.1f".format(it / 10f) } ?: "9.0"}  •  ${item.card.year ?: 2025}  •  ${item.card.episodes ?: 12} حلقة",
+                                            color = Color(0xFFFBBF24),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showTrailerDialog = false
+                                            onOpenEpisodes(item.card.id)
+                                        },
+                                    ) {
+                                        Text("▶ مشاهدة الحلقات")
+                                    }
+                                },
+                                dismissButton = {
+                                    OutlinedButton(onClick = { showTrailerDialog = false }) {
+                                        Text("إغلاق")
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -1832,45 +2113,279 @@ fun StardimaCatalogScreen(
 fun ScheduleScreen(
     repository: AnilistRepository,
     onOpenDetails: (Int) -> Unit,
+    onOpenWatch: (Int, Int) -> Unit = { id, _ -> onOpenDetails(id) },
     onBack: () -> Unit,
 ) {
     var items by remember { mutableStateOf<List<AiringScheduleItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var selectedDay by rememberSaveable {
+        mutableStateOf(java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK))
+    }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var sortByScore by rememberSaveable { mutableStateOf(false) }
+    var remindedIds by rememberSaveable { mutableStateOf(setOf<Int>()) }
+
+    val weekDays = remember {
+        listOf(
+            -1 to "كل الأسبوع",
+            java.util.Calendar.SATURDAY to "السبت",
+            java.util.Calendar.SUNDAY to "الأحد",
+            java.util.Calendar.MONDAY to "الاثنين",
+            java.util.Calendar.TUESDAY to "الثلاثاء",
+            java.util.Calendar.WEDNESDAY to "الأربعاء",
+            java.util.Calendar.THURSDAY to "الخميس",
+            java.util.Calendar.FRIDAY to "الجمعة",
+        )
+    }
 
     LaunchedEffect(Unit) {
         val nowSec = System.currentTimeMillis() / 1000L
-        items = runCatching { repository.loadSchedule(nowSec - 86_400L, nowSec + 6 * 86_400L) }
+        items = runCatching { repository.loadSchedule(nowSec - 2 * 86_400L, nowSec + 6 * 86_400L) }
             .getOrDefault(emptyList())
         loading = false
     }
 
+    val dayCounts = remember(items) {
+        val counts = mutableMapOf<Int, Int>()
+        items.forEach { sched ->
+            val cal = java.util.Calendar.getInstance().apply {
+                timeInMillis = sched.airingAt * 1000L
+            }
+            val d = cal.get(java.util.Calendar.DAY_OF_WEEK)
+            counts[d] = (counts[d] ?: 0) + 1
+        }
+        counts
+    }
+
+    val filteredItems = remember(items, selectedDay, searchQuery, sortByScore) {
+        val q = searchQuery.trim().lowercase()
+        items.filter { sched ->
+            val cal = java.util.Calendar.getInstance().apply {
+                timeInMillis = sched.airingAt * 1000L
+            }
+            val dayMatch = selectedDay == -1 || cal.get(java.util.Calendar.DAY_OF_WEEK) == selectedDay
+            val queryMatch = q.isEmpty() ||
+                sched.anime.displayTitle().lowercase().contains(q) ||
+                sched.anime.title.lowercase().contains(q)
+            dayMatch && queryMatch
+        }.let { list ->
+            if (sortByScore) {
+                list.sortedByDescending { it.anime.score ?: 0 }
+            } else {
+                list.sortedBy { it.airingAt }
+            }
+        }
+    }
+
     CatalogScaffold(title = "جدول البث الأسبوعي", onBack = onBack) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Hero Broadcast Summary Banner
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "● جدول البث المباشر بتوقيتك المحلي",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                            Text(
+                                text = "إجمالي ${items.size} حلقة أسبوعياً · ${remindedIds.size} تذكيرات مفعلة",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { sortByScore = !sortByScore },
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(
+                                text = if (sortByScore) "★ الأعلى تقييماً" else "🕒 حسب الوقت",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                        }
+                    }
+                }
+
+                // Search Input
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("ابحث عن أنمي في جدول البث...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                )
+
+                // 7-Day Filter Bar
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(weekDays, key = { it.first }) { (dayId, label) ->
+                        val active = selectedDay == dayId
+                        val count = if (dayId == -1) items.size else (dayCounts[dayId] ?: 0)
+                        FilterChip(
+                            selected = active,
+                            onClick = { selectedDay = dayId },
+                            label = {
+                                Text(
+                                    text = "$label ($count)",
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
         if (loading) {
             item { LoadingBlock() }
+        } else if (filteredItems.isEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "لا توجد حلقات مطابقة لليوم المحدد",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Button(
+                        onClick = {
+                            selectedDay = -1
+                            searchQuery = ""
+                        },
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) {
+                        Text("عرض جدول الأسبوع بالكامل")
+                    }
+                }
+            }
         } else {
-            items(items, key = { it.id }) { sched ->
+            items(filteredItems, key = { it.id }) { sched ->
+                val isReminded = sched.id in remindedIds
+                val airTimeText = remember(sched.airingAt) {
+                    val sdf = java.text.SimpleDateFormat("EEEE • hh:mm a", java.util.Locale("ar"))
+                    sdf.format(java.util.Date(sched.airingAt * 1000L))
+                }
+                val statusText = remember(sched.timeUntilAiring) {
+                    when {
+                        sched.timeUntilAiring <= 0 -> "متاح للمشاهدة الآن"
+                        sched.timeUntilAiring < 3600 -> "يُعرض خلال ${sched.timeUntilAiring / 60} دقيقة"
+                        sched.timeUntilAiring < 86_400 -> "بعد ${sched.timeUntilAiring / 3600} ساعة"
+                        else -> "بعد ${sched.timeUntilAiring / 86_400} يوم"
+                    }
+                }
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clickable { onOpenDetails(sched.anime.id) },
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isReminded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    ),
                 ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = sched.anime.coverUrl,
-                            contentDescription = sched.anime.title,
-                            modifier = Modifier.width(60.dp).height(84.dp).clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(sched.anime.title, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "الحلقة ${sched.episode}",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(
+                                model = sched.anime.coverUrl,
+                                contentDescription = sched.anime.displayTitle(),
+                                modifier = Modifier
+                                    .width(68.dp)
+                                    .height(96.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onOpenDetails(sched.anime.id) },
+                                contentScale = ContentScale.Crop,
                             )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "● $statusText",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                                Text(
+                                    text = sched.anime.displayTitle(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                Text(
+                                    text = "الحلقة ${sched.episode} · $airTimeText",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                Text(
+                                    text = "${sched.anime.format ?: "TV"} · ★ ${sched.anime.score ?: 8.5} · 1080p FHD",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Button(
+                                onClick = { onOpenWatch(sched.anime.id, sched.episode) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("▶ مشاهدة الحلقة ${sched.episode}", fontWeight = FontWeight.ExtraBold)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    remindedIds = if (isReminded) {
+                                        remindedIds - sched.id
+                                    } else {
+                                        remindedIds + sched.id
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text(if (isReminded) "🔔 مُفعّل" else "🔔 تذكير")
+                            }
+                            OutlinedButton(
+                                onClick = { onOpenDetails(sched.anime.id) },
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("التفاصيل")
+                            }
                         }
                     }
                 }
@@ -1953,6 +2468,7 @@ private fun FilterRail(
     filters: BrowseFilters,
     onChange: (BrowseFilters) -> Unit,
 ) {
+    val isLight = LocalNovaThemeState.current.isLight
     val sorts = listOf(
         "POPULARITY_DESC" to "الأكثر شعبية",
         "TRENDING_DESC" to "الرائج",
@@ -1962,33 +2478,66 @@ private fun FilterRail(
     val formats = listOf(
         null to "الكل",
         "TV" to "مسلسل",
-        "MOVIE" to "فيلم",
+        "MOVIE" to "🎬 أفلام الأنمي",
         "OVA" to "OVA",
         "ONA" to "ONA",
     )
-    Column {
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(sorts) { (value, label) ->
-                FilterChip(
-                    selected = filters.sort == value,
-                    onClick = { onChange(filters.copy(sort = value)) },
-                    label = { Text(label) },
-                )
+    Surface(
+        color = if (isLight) Color(0xFFFFFFFF) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isLight) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(sorts) { (value, label) ->
+                    FilterChip(
+                        selected = filters.sort == value,
+                        onClick = { onChange(filters.copy(sort = value)) },
+                        label = {
+                            Text(
+                                text = label,
+                                color = if (filters.sort == value) {
+                                    MaterialTheme.colorScheme.primary
+                                } else if (isLight) {
+                                    Color(0xFF0F172A)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                fontWeight = FontWeight.Bold,
+                            )
+                        },
+                    )
+                }
             }
-        }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(formats) { (value, label) ->
-                FilterChip(
-                    selected = filters.format == value,
-                    onClick = { onChange(filters.copy(format = value)) },
-                    label = { Text(label) },
-                )
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(formats) { (value, label) ->
+                    FilterChip(
+                        selected = filters.format == value,
+                        onClick = { onChange(filters.copy(format = value)) },
+                        label = {
+                            Text(
+                                text = label,
+                                color = if (filters.format == value) {
+                                    MaterialTheme.colorScheme.primary
+                                } else if (isLight) {
+                                    Color(0xFF0F172A)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                fontWeight = FontWeight.Bold,
+                            )
+                        },
+                    )
+                }
             }
         }
     }

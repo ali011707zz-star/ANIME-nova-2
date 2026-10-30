@@ -60,8 +60,17 @@ import {
   GENRE_MAP,
   paletteColors,
 } from "../constants/novaColors";
-import { useTvMetrics } from "../utils/tv";
+import { useTvMetrics, getGridColumnCount } from "../utils/tv";
 import { NovaInternalVideoPlayer } from "./NovaSeasonsAndMangaScreens";
+import {
+  AR_SCHEDULE_DAYS,
+  buildWeeklySchedule,
+  filterAndSortSchedule,
+  getDayLabelAr,
+  getScheduleStats,
+  ScheduleSortBy,
+  ScheduleStatusFilter,
+} from "../utils/scheduleLogic";
 
 /* ══════════════════════════════════════════════════════════════════════════
    1. AnimeDetailScreen (100% 1:1 from artifacts/nova-mobile/app/anime/[id].tsx)
@@ -297,7 +306,7 @@ export function NovaAnimeDetailScreen({
       {/* ── Hero Banner (Modern Cinematic Backdrop) ── */}
       <div
         className="relative w-full overflow-hidden"
-        style={{ height: 220 }}
+        style={{ height: vpWidth >= 960 ? 310 : vpWidth >= 600 ? 260 : 220 }}
       >
         <img
           src={anime.bannerImage || anime.coverImage}
@@ -966,13 +975,16 @@ export function NovaAnimeDetailScreen({
               </span>
             </div>
             <span
+              className="px-2.5 py-0.5 rounded-full"
               style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: colors.accent,
+                fontSize: 10,
+                fontWeight: 800,
+                color: "#38BDF8",
+                backgroundColor: "rgba(14, 165, 233, 0.12)",
+                border: "1px solid rgba(56, 189, 248, 0.28)",
               }}
             >
-              عرض أفقي كامل
+              1080p HD · رسمي
             </span>
           </div>
 
@@ -981,10 +993,11 @@ export function NovaAnimeDetailScreen({
             aria-label="تشغيل الإعلان الدعائي"
             className="w-full relative overflow-hidden cursor-pointer text-right active:scale-[0.99] transition-transform"
             style={{
-              height: 176,
-              borderRadius: 16,
+              height: 184,
+              borderRadius: 18,
               backgroundColor: "#0D1017",
               border: `1px solid ${colors.border}`,
+              boxShadow: "0 14px 32px -12px rgba(0, 0, 0, 0.55)",
             }}
           >
             <img
@@ -997,23 +1010,23 @@ export function NovaAnimeDetailScreen({
               className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(180deg, rgba(9,10,12,0.15) 0%, rgba(9,10,12,0.84) 100%)",
+                  "linear-gradient(180deg, rgba(9,10,12,0.12) 0%, rgba(9,10,12,0.88) 100%)",
               }}
             />
             <div className="absolute inset-0 flex items-center justify-center">
               <div
                 className="flex items-center justify-center"
                 style={{
-                  width: 54,
-                  height: 54,
+                  width: 58,
+                  height: 58,
                   background:
-                    "linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)",
+                    "linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%)",
                   borderRadius: 999,
-                  border: "2px solid rgba(255,255,255,0.35)",
-                  boxShadow: "0 8px 24px rgba(2, 132, 199, 0.55)",
+                  border: "2px solid rgba(255,255,255,0.45)",
+                  boxShadow: "0 10px 28px rgba(14, 165, 233, 0.58)",
                 }}
               >
-                <Play size={22} color="#fff" fill="#fff" />
+                <Play size={23} color="#fff" fill="#fff" />
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-3.5 flex items-center justify-between">
@@ -1021,7 +1034,7 @@ export function NovaAnimeDetailScreen({
                 <div
                   style={{
                     fontSize: 13.5,
-                    fontWeight: 800,
+                    fontWeight: 900,
                     color: "#fff",
                     textAlign: "right",
                   }}
@@ -1031,13 +1044,25 @@ export function NovaAnimeDetailScreen({
                 <div
                   style={{
                     fontSize: 10.5,
-                    color: "rgba(226,232,240,0.75)",
+                    color: "rgba(226,232,240,0.82)",
                     marginTop: 2,
                     textAlign: "right",
                   }}
                 >
-                  يفتح تلقائياً بالوضع الأفقي الكامل
+                  مشغل دعائي سينمائي فائق الوضوح — اضغط للمشاهدة
                 </div>
+              </div>
+              <div
+                className="px-2.5 py-1 rounded-lg flex items-center gap-1.5"
+                style={{
+                  backgroundColor: "rgba(255, 0, 0, 0.85)",
+                  color: "#FFFFFF",
+                  fontSize: 10,
+                  fontWeight: 900,
+                }}
+              >
+                <Play size={10} color="#fff" fill="#fff" />
+                <span>YouTube</span>
               </div>
             </div>
           </button>
@@ -1328,7 +1353,12 @@ export function NovaAnimeDetailScreen({
 
         {/* Tab 3: مشابهة */}
         {tab === "similar" && (
-          <div className="grid grid-cols-3 gap-2.5">
+          <div
+            className="grid gap-2.5"
+            style={{
+              gridTemplateColumns: `repeat(${getGridColumnCount(vpWidth, vpHeight)}, minmax(0, 1fr))`,
+            }}
+          >
             {allAnime
               .filter((a) => a.id !== anime.id)
               .slice(0, 6)
@@ -1482,14 +1512,15 @@ export function NovaAnimeDetailScreen({
         </div>
       )}
 
-      {/* ── Fullscreen Official YouTube Trailer Modal (Auto-Landscape Orientation) ── */}
+      {/* ── Fullscreen Official YouTube Trailer Modal (Redesigned Cinema Interior & Header) ── */}
       {showTrailerModal && trailerYT && (() => {
         const shouldRotateLandscape = trailerLandscape && vpHeight > vpWidth;
         return (
           <div
             ref={trailerModalRef}
+            data-testid="trailer-fullscreen-modal"
             className="fixed inset-0 z-[120] overflow-hidden"
-            style={{ backgroundColor: "#000" }}
+            style={{ backgroundColor: "#04070D" }}
           >
             <div
               dir="rtl"
@@ -1504,164 +1535,269 @@ export function NovaAnimeDetailScreen({
                       height: "100vw",
                       transform: "translate(-50%, -50%) rotate(90deg)",
                       transformOrigin: "center center",
-                      backgroundColor: "#000",
+                      background:
+                        "radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.16) 0%, #050811 55%, #020409 100%)",
                     }
                   : {
                       width: "100vw",
                       height: "100vh",
-                      backgroundColor: "#000",
+                      background:
+                        "radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.16) 0%, #050811 55%, #020409 100%)",
                     }
               }
             >
-              {/* Compact Landscape Trailer Header */}
+              {/* ── Redesigned Luxury Top Header Bar (الجزء الأعلى من التريلر) ── */}
               <div
-                className="flex items-center shrink-0"
+                data-testid="trailer-modal-header"
+                className="flex items-center justify-between shrink-0"
                 style={{
                   gap: 10,
-                  paddingLeft: 14,
-                  paddingRight: 14,
-                  paddingTop: 8,
-                  paddingBottom: 8,
-                  backgroundColor: "rgba(9, 9, 11, 0.92)",
-                  borderBottom: `1px solid ${colors.border}`,
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  paddingTop: 10,
+                  paddingBottom: 10,
+                  background:
+                    "linear-gradient(180deg, rgba(8, 13, 24, 0.98) 0%, rgba(11, 17, 30, 0.90) 100%)",
+                  borderBottom: "1px solid rgba(56, 189, 248, 0.22)",
+                  boxShadow: "0 10px 30px -10px rgba(0, 0, 0, 0.7)",
                 }}
               >
-                {/* Back arrow button */}
-                <button
-                  onClick={closeTrailerModal}
-                  aria-label="رجوع"
-                  className="flex items-center justify-center cursor-pointer"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    backgroundColor: colors.surfaceElevated,
-                  }}
-                >
-                  <ChevronRight size={18} color={colors.textPrimary} />
-                </button>
-
-                {/* Official Red YouTube Icon */}
-                <div
-                  className="flex items-center justify-center shrink-0"
-                  style={{
-                    width: 26,
-                    height: 19,
-                    borderRadius: 5,
-                    backgroundColor: "#FF0000",
-                  }}
-                >
-                  <Play size={10} color="#fff" fill="#fff" />
-                </div>
-
-                {/* Trailer Title + Landscape Badge */}
-                <span
-                  className="flex-1 line-clamp-1"
-                  style={{
-                    fontSize: 13.5,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                    textAlign: "right",
-                  }}
-                >
-                  الإعلان الدعائي — {anime.titleAr || anime.title}
-                </span>
-
-                {/* Landscape / Portrait Orientation Toggle */}
-                <button
-                  onClick={() => setTrailerLandscape((prev) => !prev)}
-                  aria-label="تدوير الشاشة"
-                  className="flex items-center gap-1.5 px-2.5 cursor-pointer"
-                  style={{
-                    height: 34,
-                    borderRadius: 10,
-                    backgroundColor: trailerLandscape
-                      ? "rgba(139, 92, 246, 0.22)"
-                      : colors.surfaceElevated,
-                    border: trailerLandscape
-                      ? "1px solid rgba(167, 139, 250, 0.45)"
-                      : `1px solid ${colors.border}`,
-                  }}
-                >
-                  <RotateCw size={14} color={trailerLandscape ? "#C4B5FD" : colors.textPrimary} />
-                  <span
+                {/* Right Side: Back Button + Poster Thumbnail + Title & Official Badge */}
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <button
+                    onClick={closeTrailerModal}
+                    aria-label="رجوع"
+                    className="flex items-center justify-center cursor-pointer shrink-0 active:scale-95 transition-transform"
                     style={{
-                      fontSize: 10.5,
-                      fontWeight: 800,
-                      color: trailerLandscape ? "#EDE9FE" : colors.textSecondary,
+                      width: 38,
+                      height: 38,
+                      borderRadius: 12,
+                      background: "rgba(255, 255, 255, 0.07)",
+                      border: "1px solid rgba(255, 255, 255, 0.14)",
                     }}
                   >
-                    {trailerLandscape ? "وضع أفقي" : "وضع عمودي"}
-                  </span>
-                </button>
+                    <ChevronRight size={19} color="#F8FAFC" />
+                  </button>
 
-                {/* Fullscreen Toggle Button */}
-                <button
-                  onClick={() => {
-                    const el = trailerModalRef.current;
-                    if (document.fullscreenElement && document.exitFullscreen) {
-                      document.exitFullscreen().catch(() => {});
-                    } else if (el && el.requestFullscreen) {
-                      el.requestFullscreen().catch(() => {});
-                    }
-                  }}
-                  aria-label="ملء الشاشة"
-                  className="flex items-center justify-center cursor-pointer"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    backgroundColor: colors.surfaceElevated,
-                  }}
-                >
-                  <Maximize2 size={15} color={colors.textPrimary} />
-                </button>
+                  <img
+                    src={anime.cover}
+                    alt={anime.titleAr || anime.title}
+                    className="w-8 h-11 rounded-lg object-cover shrink-0"
+                    style={{
+                      border: "1px solid rgba(56, 189, 248, 0.35)",
+                    }}
+                  />
 
-                {/* External open button */}
-                <a
-                  href={`https://www.youtube.com/watch?v=${trailerYT}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="فتح في يوتيوب"
-                  className="flex items-center justify-center cursor-pointer"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    backgroundColor: colors.surfaceElevated,
-                  }}
-                >
-                  <ExternalLink size={15} color={colors.textSecondary} />
-                </a>
+                  <div className="min-w-0 flex-1 text-right">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className="px-2 py-0.5 rounded-md flex items-center gap-1"
+                        style={{
+                          backgroundColor: "rgba(239, 68, 68, 0.2)",
+                          border: "1px solid rgba(239, 68, 68, 0.45)",
+                          fontSize: 9.5,
+                          fontWeight: 900,
+                          color: "#FCA5A5",
+                        }}
+                      >
+                        <Play size={8} color="#EF4444" fill="#EF4444" />
+                        OFFICIAL TRAILER
+                      </span>
+                      <span
+                        className="px-2 py-0.5 rounded-md"
+                        style={{
+                          backgroundColor: "rgba(14, 165, 233, 0.16)",
+                          border: "1px solid rgba(56, 189, 248, 0.35)",
+                          fontSize: 9.5,
+                          fontWeight: 900,
+                          color: "#38BDF8",
+                        }}
+                      >
+                        1080p HD
+                      </span>
+                    </div>
+                    <div
+                      className="line-clamp-1 mt-0.5"
+                      style={{
+                        fontSize: 13.5,
+                        fontWeight: 900,
+                        color: "#F8FAFC",
+                      }}
+                    >
+                      {anime.titleAr || anime.title}
+                    </div>
+                  </div>
+                </div>
 
-                {/* Close X button */}
-                <button
-                  onClick={closeTrailerModal}
-                  aria-label="إغلاق الإعلان الدعائي"
-                  className="flex items-center justify-center cursor-pointer"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    backgroundColor: colors.surfaceElevated,
-                  }}
-                >
-                  <X size={17} color={colors.textPrimary} />
-                </button>
+                {/* Left Side: Action Controls (Orientation, Fullscreen, YouTube, Close) */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setTrailerLandscape((prev) => !prev)}
+                    aria-label="تدوير الشاشة"
+                    className="flex items-center gap-1.5 px-3 cursor-pointer active:scale-95 transition-transform"
+                    style={{
+                      height: 36,
+                      borderRadius: 11,
+                      background: trailerLandscape
+                        ? "linear-gradient(135deg, rgba(14, 165, 233, 0.26) 0%, rgba(37, 99, 235, 0.22) 100%)"
+                        : "rgba(255, 255, 255, 0.07)",
+                      border: trailerLandscape
+                        ? "1px solid rgba(56, 189, 248, 0.5)"
+                        : "1px solid rgba(255, 255, 255, 0.14)",
+                    }}
+                  >
+                    <RotateCw
+                      size={14}
+                      color={trailerLandscape ? "#38BDF8" : "#E2E8F0"}
+                    />
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 900,
+                        color: trailerLandscape ? "#E0F2FE" : "#CBD5E1",
+                      }}
+                    >
+                      {trailerLandscape ? "تدوير الشاشة" : "وضع عمودي"}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const el = trailerModalRef.current;
+                      if (document.fullscreenElement && document.exitFullscreen) {
+                        document.exitFullscreen().catch(() => {});
+                      } else if (el && el.requestFullscreen) {
+                        el.requestFullscreen().catch(() => {});
+                      }
+                    }}
+                    aria-label="ملء الشاشة"
+                    className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 11,
+                      backgroundColor: "rgba(255, 255, 255, 0.07)",
+                      border: "1px solid rgba(255, 255, 255, 0.14)",
+                    }}
+                  >
+                    <Maximize2 size={15} color="#F8FAFC" />
+                  </button>
+
+                  <a
+                    href={`https://www.youtube.com/watch?v=${trailerYT}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="فتح في يوتيوب"
+                    className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 11,
+                      backgroundColor: "rgba(255, 255, 255, 0.07)",
+                      border: "1px solid rgba(255, 255, 255, 0.14)",
+                    }}
+                  >
+                    <ExternalLink size={15} color="#94A3B8" />
+                  </a>
+
+                  <button
+                    onClick={closeTrailerModal}
+                    aria-label="إغلاق الإعلان الدعائي"
+                    className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 11,
+                      backgroundColor: "rgba(244, 63, 94, 0.16)",
+                      border: "1px solid rgba(244, 63, 94, 0.38)",
+                    }}
+                  >
+                    <X size={17} color="#FDA4AF" />
+                  </button>
+                </div>
               </div>
 
-              {/* Fullscreen Official YouTube Player (100% of remaining landscape viewport) */}
-              <div className="flex-1 w-full h-full bg-black relative overflow-hidden">
-                <iframe
-                  key={trailerYT}
-                  title={`الإعلان الدعائي - ${anime.title}`}
-                  src={`https://www.youtube.com/embed/${trailerYT}?autoplay=1&playsinline=0&rel=0&modestbranding=1&fs=1&enablejsapi=1&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`}
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                  allowFullScreen
-                  className="w-full h-full border-0 block"
-                  style={{ width: "100%", height: "100%", backgroundColor: "#000" }}
-                />
+              {/* ── Redesigned Cinema Frame Interior (من الداخل) ── */}
+              <div className="flex-1 w-full h-full p-2.5 sm:p-4 flex flex-col overflow-hidden">
+                <div
+                  className="flex-1 w-full h-full relative overflow-hidden rounded-2xl"
+                  style={{
+                    backgroundColor: "#000",
+                    border: "1px solid rgba(56, 189, 248, 0.25)",
+                    boxShadow:
+                      "0 20px 50px rgba(0, 0, 0, 0.85), 0 0 32px rgba(14, 165, 233, 0.12)",
+                  }}
+                >
+                  <iframe
+                    key={trailerYT}
+                    title={`الإعلان الدعائي - ${anime.title}`}
+                    src={`https://www.youtube.com/embed/${trailerYT}?autoplay=1&playsinline=0&rel=0&modestbranding=1&fs=1&enablejsapi=1&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`}
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    allowFullScreen
+                    className="w-full h-full border-0 block"
+                    style={{ width: "100%", height: "100%", backgroundColor: "#000" }}
+                  />
+                </div>
+              </div>
+
+              {/* ── Bottom Cinema Info & Quick Watch Strip ── */}
+              <div
+                className="flex items-center justify-between shrink-0 px-4 py-2.5"
+                style={{
+                  backgroundColor: "rgba(8, 13, 24, 0.95)",
+                  borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 900,
+                      color: "#FBBF24",
+                    }}
+                  >
+                    ★ {anime.score.toFixed(1)}
+                  </span>
+                  <span style={{ color: "rgba(255,255,255,0.2)" }}>•</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#94A3B8",
+                    }}
+                  >
+                    {anime.year} · {anime.episodesCount} حلقة
+                  </span>
+                  <span style={{ color: "rgba(255,255,255,0.2)" }}>•</span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#38BDF8",
+                    }}
+                  >
+                    {(anime.genres || []).slice(0, 3).join(" ، ")}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeTrailerModal();
+                    onOpenEpisodes(anime);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
+                  style={{
+                    background: "linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%)",
+                    color: "#FFFFFF",
+                    fontSize: 11,
+                    fontWeight: 900,
+                  }}
+                >
+                  <Play size={12} color="#fff" fill="#fff" />
+                  <span>مشاهدة الحلقات</span>
+                </button>
               </div>
             </div>
           </div>
@@ -4633,17 +4769,76 @@ export function NovaScheduleScreen({
   colors: ThemePalette;
   onBack: () => void;
   onOpenDetails: (anime: Anime) => void;
-  onPlayEpisode: (anime: Anime) => void;
+  onPlayEpisode: (anime: Anime, episodeNumber?: number) => void;
 }) {
+  const { width: vpWidth, tv: tvMode } = useTvMetrics();
+  const todayDay = useMemo(() => new Date().getDay(), []);
   const [mainTab, setMainTab] = useState<"schedule" | "latest">("schedule");
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+  const [selectedDay, setSelectedDay] = useState<number>(todayDay);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<ScheduleStatusFilter>("all");
+  const [sortBy, setSortBy] = useState<ScheduleSortBy>("time");
+  const [reminders, setReminders] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("nova_schedule_reminders_v1");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleReminder = (entryId: string) => {
+    setReminders((prev) => {
+      const next = prev.includes(entryId)
+        ? prev.filter((id) => id !== entryId)
+        : [...prev, entryId];
+      try {
+        localStorage.setItem(
+          "nova_schedule_reminders_v1",
+          JSON.stringify(next)
+        );
+      } catch {}
+      return next;
+    });
+  };
+
+  const fullSchedule = useMemo(
+    () => buildWeeklySchedule(animeList),
+    [animeList]
+  );
+
+  const stats = useMemo(
+    () => getScheduleStats(fullSchedule, todayDay),
+    [fullSchedule, todayDay]
+  );
+
+  const visibleEntries = useMemo(() => {
+    if (mainTab === "latest") {
+      return filterAndSortSchedule(fullSchedule, {
+        selectedDay: -1,
+        searchQuery,
+        statusFilter: "all",
+        sortBy: "score",
+      });
+    }
+    return filterAndSortSchedule(fullSchedule, {
+      selectedDay,
+      searchQuery,
+      statusFilter,
+      sortBy,
+    });
+  }, [fullSchedule, mainTab, selectedDay, searchQuery, statusFilter, sortBy]);
+
+  const gridCols = tvMode ? 3 : vpWidth >= 760 ? 2 : 1;
 
   return (
     <div
       dir="rtl"
       className="flex-1 min-h-0 flex flex-col overflow-y-auto no-scrollbar select-none"
-      style={{ backgroundColor: colors.background, paddingBottom: 32 }}
+      style={{ backgroundColor: colors.background, paddingBottom: 40 }}
     >
+      {/* Top Sticky Broadcast Navigation & Filter Header */}
       <div
         className="sticky top-0 z-20 shrink-0 px-4 pt-3.5 pb-3"
         style={{
@@ -4651,110 +4846,266 @@ export function NovaScheduleScreen({
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div className="flex items-center gap-2.5 mb-3">
+        <div className="flex items-center justify-between gap-2.5 mb-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={onBack}
+              aria-label="رجوع"
+              className="flex items-center justify-center cursor-pointer"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 11,
+                backgroundColor: colors.card,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <ChevronRight size={18} color={colors.textPrimary} />
+            </button>
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background:
+                  "linear-gradient(135deg, rgba(14,165,233,0.22), rgba(139,92,246,0.22))",
+                border: "1px solid rgba(56,189,248,0.35)",
+              }}
+            >
+              <Calendar size={18} color="#38BDF8" />
+            </div>
+            <div>
+              <h1
+                className="m-0"
+                style={{
+                  fontSize: 16.5,
+                  fontWeight: 900,
+                  color: colors.textPrimary,
+                }}
+              >
+                جدول البث الأسبوعي
+              </h1>
+              <p
+                className="m-0"
+                style={{ fontSize: 11, color: colors.textMuted }}
+              >
+                مواعيد عرض الحلقات المترجمة بتوقيتك المحلي · تحديث مباشر
+              </p>
+            </div>
+          </div>
+
           <button
-            onClick={onBack}
-            aria-label="رجوع"
-            className="flex items-center justify-center cursor-pointer"
+            onClick={() =>
+              setSortBy((prev) => (prev === "time" ? "score" : "time"))
+            }
+            aria-label={
+              sortBy === "time" ? "ترتيب حسب التقييم" : "ترتيب حسب وقت البث"
+            }
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl cursor-pointer"
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
+              backgroundColor: colors.card,
+              border: `1px solid ${colors.border}`,
+              color: colors.textPrimary,
+              fontSize: 11,
+              fontWeight: 800,
+            }}
+          >
+            <ArrowUpDown size={13} color="#38BDF8" />
+            <span>{sortBy === "time" ? "حسب الوقت" : "الأعلى تقييماً"}</span>
+          </button>
+        </div>
+
+        {/* Main View Switcher: Weekly Schedule vs Latest Added Episodes */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMainTab("schedule")}
+            className="flex-1 py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-2"
+            style={{
+              backgroundColor:
+                mainTab === "schedule"
+                  ? "rgba(14,165,233,0.18)"
+                  : colors.card,
+              border: `1px solid ${
+                mainTab === "schedule" ? "#0EA5E9" : colors.border
+              }`,
+              color: mainTab === "schedule" ? "#38BDF8" : colors.textMuted,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            <Calendar size={14} />
+            <span>جدول أيام الأسبوع ({stats.totalWeeklyEpisodes})</span>
+          </button>
+          <button
+            onClick={() => setMainTab("latest")}
+            className="flex-1 py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-2"
+            style={{
+              backgroundColor:
+                mainTab === "latest"
+                  ? "rgba(139,92,246,0.22)"
+                  : colors.card,
+              border: `1px solid ${
+                mainTab === "latest" ? "#8B5CF6" : colors.border
+              }`,
+              color: mainTab === "latest" ? "#C4B5FD" : colors.textMuted,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            <Sparkles size={14} />
+            <span>أحدث الحلقات المضافة</span>
+          </button>
+        </div>
+
+        {/* Search & Status Filters */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <div
+            className="flex-1 min-w-[200px] flex items-center gap-2 px-3 py-2 rounded-xl"
+            style={{
               backgroundColor: colors.card,
               border: `1px solid ${colors.border}`,
             }}
           >
-            <ChevronRight size={18} color={colors.textPrimary} />
-          </button>
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              backgroundColor: "rgba(139,92,246,0.18)",
-              border: "1px solid rgba(139,92,246,0.3)",
-            }}
-          >
-            <Calendar size={18} color="#A78BFA" />
-          </div>
-          <div>
-            <h1
-              className="m-0"
+            <Search size={14} color={colors.textMuted} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث عن أنمي أو استوديو في جدول البث..."
+              aria-label="ابحث عن أنمي في جدول البث"
+              className="flex-1 bg-transparent border-0 outline-none text-right"
               style={{
-                fontSize: 16,
-                fontWeight: 800,
                 color: colors.textPrimary,
+                fontSize: 11.5,
+                fontWeight: 700,
+              }}
+            />
+            {searchQuery.trim().length > 0 && (
+              <button
+                onClick={() => setSearchQuery("")}
+                aria-label="مسح البحث"
+                className="cursor-pointer flex items-center justify-center"
+              >
+                <X size={13} color={colors.textMuted} />
+              </button>
+            )}
+          </div>
+
+          {mainTab === "schedule" && (
+            <div className="flex items-center gap-1.5">
+              {(
+                [
+                  { id: "all", label: "الكل" },
+                  { id: "upcoming", label: "يُبث قريباً" },
+                  { id: "aired", label: "مكتمل اليوم" },
+                ] as { id: ScheduleStatusFilter; label: string }[]
+              ).map((f) => {
+                const active = statusFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setStatusFilter(f.id)}
+                    className="px-2.5 py-2 rounded-xl cursor-pointer"
+                    style={{
+                      backgroundColor: active
+                        ? "rgba(56,189,248,0.16)"
+                        : colors.card,
+                      border: `1px solid ${
+                        active ? "rgba(56,189,248,0.45)" : colors.border
+                      }`,
+                      color: active ? "#38BDF8" : colors.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 7-Day Selector Bar + All Week Option */}
+        {mainTab === "schedule" && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar mt-3 pb-0.5">
+            <button
+              onClick={() => setSelectedDay(-1)}
+              className="shrink-0 px-3 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5"
+              style={{
+                backgroundColor:
+                  selectedDay === -1 ? colors.primary : colors.card,
+                border: `1px solid ${
+                  selectedDay === -1 ? colors.primary : colors.border
+                }`,
+                color: selectedDay === -1 ? "#FFFFFF" : colors.textMuted,
+                fontSize: 11.5,
+                fontWeight: 800,
               }}
             >
-              جدول البث الأسبوعي
-            </h1>
-            <p
-              className="m-0"
-              style={{ fontSize: 10.5, color: colors.textMuted }}
-            >
-              مواعيد عرض الحلقات بتوقيتك المحلي
-            </p>
-          </div>
-        </div>
+              <span>كل الأسبوع</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  opacity: selectedDay === -1 ? 0.95 : 0.7,
+                }}
+              >
+                ({stats.totalWeeklyEpisodes})
+              </span>
+            </button>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMainTab("schedule")}
-            className="flex-1 py-2 rounded-xl cursor-pointer"
-            style={{
-              backgroundColor:
-                mainTab === "schedule"
-                  ? "rgba(139,92,246,0.22)"
-                  : colors.card,
-              border: `1px solid ${
-                mainTab === "schedule" ? "#8B5CF6" : colors.border
-              }`,
-              color: mainTab === "schedule" ? "#fff" : colors.textMuted,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            📅 جدول الأسبوع
-          </button>
-          <button
-            onClick={() => setMainTab("latest")}
-            className="flex-1 py-2 rounded-xl cursor-pointer"
-            style={{
-              backgroundColor:
-                mainTab === "latest" ? "rgba(244,63,94,0.2)" : colors.card,
-              border: `1px solid ${
-                mainTab === "latest" ? "#f43f5e" : colors.border
-              }`,
-              color: mainTab === "latest" ? "#fff" : colors.textMuted,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            ⚡ آخر الحلقات المضافة
-          </button>
-        </div>
-
-        {mainTab === "schedule" && (
-          <div className="flex gap-2 overflow-x-auto no-scrollbar mt-3">
-            {AR_DAYS.map((d) => {
+            {AR_SCHEDULE_DAYS.map((d) => {
               const active = selectedDay === d.id;
+              const isToday = d.id === todayDay;
+              const count = stats.dayCounts[d.id] || 0;
               return (
                 <button
                   key={d.id}
                   onClick={() => setSelectedDay(d.id)}
-                  className="shrink-0 px-3.5 py-1.5 rounded-xl cursor-pointer"
+                  className="shrink-0 px-3.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5"
                   style={{
-                    backgroundColor: active ? colors.primary : colors.card,
+                    backgroundColor: active
+                      ? colors.primary
+                      : isToday
+                      ? "rgba(14,165,233,0.12)"
+                      : colors.card,
                     border: `1px solid ${
-                      active ? colors.primary : colors.border
+                      active
+                        ? colors.primary
+                        : isToday
+                        ? "rgba(56,189,248,0.4)"
+                        : colors.border
                     }`,
-                    color: active ? "#fff" : colors.textMuted,
+                    color: active
+                      ? "#FFFFFF"
+                      : isToday
+                      ? "#38BDF8"
+                      : colors.textMuted,
                     fontSize: 11.5,
-                    fontWeight: 700,
+                    fontWeight: 800,
                   }}
                 >
-                  {d.label}
+                  <span>{d.label}</span>
+                  {isToday && (
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                        color: active ? "#E0F2FE" : "#38BDF8",
+                      }}
+                    >
+                      • اليوم
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      fontSize: 10,
+                      opacity: active ? 0.95 : 0.7,
+                    }}
+                  >
+                    ({count})
+                  </span>
                 </button>
               );
             })}
@@ -4762,71 +5113,342 @@ export function NovaScheduleScreen({
         )}
       </div>
 
-      <div className="p-4 flex flex-col gap-2.5">
-        {animeList.map((item, idx) => (
+      {/* Broadcast Summary Hero Banner */}
+      {stats.nextHighlight && (
+        <div className="px-4 pt-4">
           <div
-            key={item.id}
-            onClick={() =>
-              mainTab === "latest" ? onPlayEpisode(item) : onOpenDetails(item)
-            }
-            className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer"
+            className="rounded-2xl p-4 relative overflow-hidden"
             style={{
-              backgroundColor: colors.card,
-              border: `1px solid ${colors.border}`,
+              background:
+                "linear-gradient(135deg, rgba(14,165,233,0.16) 0%, rgba(139,92,246,0.16) 60%, rgba(15,23,42,0.92) 100%)",
+              border: "1px solid rgba(56,189,248,0.28)",
             }}
           >
-            <img
-              src={item.coverImage}
-              alt={item.title}
-              style={{
-                width: 60,
-                height: 84,
-                borderRadius: 10,
-                objectFit: "cover",
-              }}
-            />
-            <div className="flex-1 flex flex-col gap-1">
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 800,
-                  color: colors.textPrimary,
-                }}
-              >
-                {item.titleAr || item.title}
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#A78BFA",
-                }}
-              >
-                الحلقة {(idx % 12) + 1}
-              </span>
-              <span style={{ fontSize: 10, color: colors.textMuted }}>
-                يُعرض الساعة {18 + (idx % 5)}:30 مساءً
-              </span>
-            </div>
-            <div
-              style={{
-                paddingLeft: 10,
-                paddingRight: 10,
-                paddingTop: 5,
-                paddingBottom: 5,
-                borderRadius: 10,
-                backgroundColor: colors.accentSurface,
-                border: `1px solid ${colors.accentBorder}`,
-                fontSize: 10,
-                fontWeight: 700,
-                color: colors.accent,
-              }}
-            >
-              {mainTab === "latest" ? "مشاهدة" : "بعد 3س"}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={
+                    stats.nextHighlight.anime.coverImage ||
+                    stats.nextHighlight.anime.cover
+                  }
+                  alt={stats.nextHighlight.anime.titleAr}
+                  style={{
+                    width: 56,
+                    height: 78,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                  }}
+                />
+                <div className="min-w-0">
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      color: "#38BDF8",
+                    }}
+                  >
+                    ● بث اليوم ({getDayLabelAr(todayDay)}) ·{" "}
+                    {stats.todayCount} حلقات مجدولة · { reminders.length } تذكيرات نشطة
+                  </div>
+                  <div
+                    className="truncate mt-0.5"
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 900,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    {stats.nextHighlight.anime.titleAr ||
+                      stats.nextHighlight.anime.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: colors.textSecondary,
+                      fontWeight: 700,
+                    }}
+                  >
+                    الحلقة {stats.nextHighlight.episodeNumber} · الساعة{" "}
+                    {stats.nextHighlight.airTimeLabelAr} ·{" "}
+                    {stats.nextHighlight.studio}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    onPlayEpisode(
+                      stats.nextHighlight!.anime,
+                      stats.nextHighlight!.episodeNumber
+                    )
+                  }
+                  className="px-3.5 py-2 rounded-xl cursor-pointer flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: "#0EA5E9",
+                    color: "#FFFFFF",
+                    fontSize: 11.5,
+                    fontWeight: 900,
+                  }}
+                >
+                  <Play size={13} fill="#FFFFFF" />
+                  <span>مشاهدة الآن</span>
+                </button>
+              </div>
             </div>
           </div>
-        ))}
+        </div>
+      )}
+
+      {/* Active Day Section Header */}
+      <div className="px-4 pt-3.5 pb-1 flex items-center justify-between">
+        <div
+          style={{
+            fontSize: 13.5,
+            fontWeight: 900,
+            color: colors.textPrimary,
+          }}
+        >
+          {mainTab === "latest"
+            ? "⚡ أحدث الحلقات المضافة مؤخراً"
+            : selectedDay === -1
+            ? "📅 جدول البث الكامل لجميع أيام الأسبوع"
+            : `📅 عروض يوم ${getDayLabelAr(selectedDay)}${
+                selectedDay === todayDay ? " (اليوم)" : ""
+              }`}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: colors.textMuted,
+          }}
+        >
+          {visibleEntries.length} حلقة متاحة
+        </div>
       </div>
+
+      {/* Schedule Cards Responsive Grid */}
+      {visibleEntries.length === 0 ? (
+        <div className="p-8 flex flex-col items-center justify-center text-center gap-2">
+          <Calendar size={34} color={colors.textMuted} />
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 800,
+              color: colors.textPrimary,
+            }}
+          >
+            لا توجد حلقات مطابقة لخيارات التصفية الحالية
+          </div>
+          <div style={{ fontSize: 11.5, color: colors.textMuted }}>
+            جرّب اختيار يوم آخر أو عرض كل الأسبوع
+          </div>
+          <button
+            onClick={() => {
+              setSelectedDay(-1);
+              setStatusFilter("all");
+              setSearchQuery("");
+            }}
+            className="mt-2 px-4 py-2 rounded-xl cursor-pointer"
+            style={{
+              backgroundColor: colors.primary,
+              color: "#FFFFFF",
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            إظهار جدول الأسبوع بالكامل
+          </button>
+        </div>
+      ) : (
+        <div
+          className="p-4 grid gap-3"
+          style={{
+            gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+          }}
+        >
+          {visibleEntries.map((entry) => {
+            const isReminded = reminders.includes(entry.id);
+            const statusColor =
+              entry.slotStatus === "live"
+                ? "#10B981"
+                : entry.slotStatus === "upcoming"
+                ? "#38BDF8"
+                : "#A78BFA";
+
+            return (
+              <div
+                key={entry.id}
+                className="flex flex-col justify-between p-3 rounded-2xl transition-transform"
+                style={{
+                  backgroundColor: colors.card,
+                  border: `1px solid ${
+                    isReminded ? "rgba(56,189,248,0.45)" : colors.border
+                  }`,
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Poster with Episode Overlay */}
+                  <div
+                    onClick={() => onOpenDetails(entry.anime)}
+                    className="relative shrink-0 cursor-pointer overflow-hidden"
+                    style={{
+                      width: 74,
+                      height: 104,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <img
+                      src={entry.anime.coverImage || entry.anime.cover}
+                      alt={entry.anime.titleAr || entry.anime.title}
+                      onError={(e) => {
+                        e.currentTarget.src =
+                          "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-m1gX3iwfIsLu.png";
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                    <div
+                      className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-md"
+                      style={{
+                        backgroundColor: "rgba(9, 13, 22, 0.88)",
+                        color: "#FFFFFF",
+                        fontSize: 10,
+                        fontWeight: 900,
+                      }}
+                    >
+                      حلقة {entry.episodeNumber}
+                    </div>
+                  </div>
+
+                  {/* Episode Broadcast Details */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          color: statusColor,
+                        }}
+                      >
+                        ● {entry.dayLabel} · {entry.countdownLabelAr}
+                      </span>
+                      <span
+                        className="flex items-center gap-1"
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        <Clock size={11} color="#38BDF8" />
+                        {entry.airTimeLabelAr}
+                      </span>
+                    </div>
+
+                    <div
+                      onClick={() => onOpenDetails(entry.anime)}
+                      className="truncate cursor-pointer"
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 900,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      {entry.anime.titleAr || entry.anime.title}
+                    </div>
+
+                    <div
+                      className="truncate"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#A78BFA",
+                      }}
+                    >
+                      {entry.episodeTitleAr}
+                    </div>
+
+                    {/* Clean dot-separated metadata line (Zero-Pill discipline) */}
+                    <div
+                      className="truncate mt-0.5"
+                      style={{
+                        fontSize: 10.5,
+                        color: colors.textMuted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {entry.studio} · {entry.genreLabelAr} ·{" "}
+                      {entry.formatLabel} · ★ {entry.anime.score} ·{" "}
+                      {entry.qualityBadge}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Row: Watch Episode, Toggle Reminder, Details */}
+                <div
+                  className="flex items-center justify-between gap-2 mt-3 pt-2.5"
+                  style={{ borderTop: `1px solid ${colors.border}` }}
+                >
+                  <button
+                    onClick={() =>
+                      onPlayEpisode(entry.anime, entry.episodeNumber)
+                    }
+                    className="flex-1 py-2 px-3 rounded-xl cursor-pointer flex items-center justify-center gap-1.5"
+                    style={{
+                      backgroundColor: "rgba(14,165,233,0.16)",
+                      border: "1px solid rgba(56,189,248,0.38)",
+                      color: "#38BDF8",
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <Play size={13} fill="#38BDF8" />
+                    <span>مشاهدة الحلقة {entry.episodeNumber}</span>
+                  </button>
+
+                  <button
+                    onClick={() => toggleReminder(entry.id)}
+                    aria-label={`تذكير عرض ${
+                      entry.anime.titleAr || entry.anime.title
+                    }`}
+                    className="py-2 px-3 rounded-xl cursor-pointer flex items-center gap-1"
+                    style={{
+                      backgroundColor: isReminded
+                        ? "rgba(16,185,129,0.16)"
+                        : colors.surface,
+                      border: `1px solid ${
+                        isReminded ? "rgba(16,185,129,0.45)" : colors.border
+                      }`,
+                      color: isReminded ? "#34D399" : colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <Bell size={13} />
+                    <span>{isReminded ? "مُفعّل" : "تذكير"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenDetails(entry.anime)}
+                    className="py-2 px-3 rounded-xl cursor-pointer"
+                    style={{
+                      backgroundColor: colors.surface,
+                      border: `1px solid ${colors.border}`,
+                      color: colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 800,
+                    }}
+                  >
+                    التفاصيل
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -5060,7 +5682,7 @@ export function NovaSettingsScreen({
     }
   });
   const [adWatchProgress, setAdWatchProgress] = useState<number | null>(null);
-  const [selectedSupportTier, setSelectedSupportTier] = useState<string>("free");
+  const [selectedSupportTier, setSelectedSupportTier] = useState<string>("");
 
   const favoriteAnimeItems = useMemo(() => {
     if (!animeList.length) return [];
@@ -5831,71 +6453,6 @@ export function NovaSettingsScreen({
                   </span>
                 </div>
 
-                {/* Quick Add Comment Box */}
-                <div
-                  className="flex flex-col gap-2 p-3 rounded-xl"
-                  style={{
-                    backgroundColor: colors.surfaceElevated,
-                    border: `1px solid ${colors.border}`,
-                  }}
-                >
-                  <select
-                    value={quickCommentAnimeId}
-                    onChange={(e) => setQuickCommentAnimeId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg outline-none"
-                    style={{
-                      backgroundColor: colors.input,
-                      border: `1px solid ${colors.border}`,
-                      color: colors.textPrimary,
-                      fontSize: 11,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {(animeList.length
-                      ? animeList.slice(0, 8)
-                      : [
-                          {
-                            id: "solo-leveling",
-                            title: "Solo Leveling",
-                            titleAr: "سولو ليفلينغ",
-                          },
-                        ]
-                    ).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.titleAr || a.title}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={quickCommentText}
-                      onChange={(e) => setQuickCommentText(e.target.value)}
-                      placeholder="اكتب تعليقاً جديداً ليُحفظ في سجلك..."
-                      className="flex-1 min-w-0 px-3 py-2 rounded-lg outline-none text-right"
-                      style={{
-                        backgroundColor: colors.input,
-                        border: `1px solid ${colors.border}`,
-                        color: colors.textPrimary,
-                        fontSize: 11.5,
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddQuickComment}
-                      className="px-4 py-2 rounded-lg cursor-pointer shrink-0"
-                      style={{
-                        backgroundColor: "#0EA5E9",
-                        color: "#FFFFFF",
-                        fontSize: 11,
-                        fontWeight: 900,
-                      }}
-                    >
-                      نشر
-                    </button>
-                  </div>
-                </div>
-
                 {/* User Comments List */}
                 {userComments.length === 0 ? (
                   <div
@@ -6544,7 +7101,7 @@ export function NovaSettingsScreen({
           </div>
 
           {/* Integrated 4-Column Telemetry & Activity Strip */}
-          {!tvMode && (
+          {(
             <div
               className="grid grid-cols-4"
               style={{
@@ -6660,7 +7217,7 @@ export function NovaSettingsScreen({
       </div>
 
       {/* ── 2. Ocean Sapphire Nova Premium VIP Banner ── */}
-      {!tvMode && (
+      {(
         <div className="px-4 mt-4 flex flex-col gap-3">
           <button
             onClick={() => setShowPremium(true)}
@@ -6875,7 +7432,7 @@ export function NovaSettingsScreen({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  "مشاهدة إعلان قصير",
+                  "ادعمني بنجوم أو هدايا تلجرام",
                   "دعم سيرفرات الحلقات",
                   "مشاركة التطبيق",
                 ].map((tag) => (
@@ -7150,81 +7707,7 @@ export function NovaSettingsScreen({
             </div>
           </button>
 
-          {/* Row 2: Telegram Official Channel */}
-          <button
-            onClick={onOpenTelegramModal}
-            className="w-full flex items-center justify-between p-3.5 cursor-pointer"
-            style={{ borderBottom: `1px solid ${colors.border}` }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(56, 189, 248, 0.15)",
-                  border: "1px solid rgba(56, 189, 248, 0.32)",
-                }}
-              >
-                <Send size={16} color="#38BDF8" />
-              </div>
-              <div className="text-right">
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  نافذة قناة التيليجرام الرسمية
-                </div>
-                <div style={{ fontSize: 10.5, color: colors.textMuted }}>
-                  متابعة أخبار الأنمي والتحديثات الفورية
-                </div>
-              </div>
-            </div>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
-
-          {/* Row 3: BrandSplash Replay */}
-          <button
-            onClick={onReplaySplash}
-            className="w-full flex items-center justify-between p-3.5 cursor-pointer"
-            style={{ borderBottom: `1px solid ${colors.border}` }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(139, 92, 246, 0.16)",
-                  border: "1px solid rgba(167, 139, 250, 0.32)",
-                }}
-              >
-                <Sparkles size={16} color="#A78BFA" />
-              </div>
-              <div className="text-right">
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  معاينة شاشة البداية (BrandSplash)
-                </div>
-                <div style={{ fontSize: 10.5, color: colors.textMuted }}>
-                  إعادة تشغيل شاشة إقلاع Anime NOVA السينمائية
-                </div>
-              </div>
-            </div>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
-
-          {/* Row 4: Clear Watch History */}
+          {/* Row 2: Clear Watch History */}
           <button
             onClick={() => {
               onClearHistory();
@@ -7257,72 +7740,6 @@ export function NovaSettingsScreen({
                 </div>
                 <div style={{ fontSize: 10.5, color: colors.textMuted }}>
                   حذف كافة الحلقات من قائمة متابعة المشاهدة
-                </div>
-              </div>
-            </div>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── 5. حزمة أندرويد الأصلية (Native Android Package) ── */}
-      <div className="px-4 mt-5">
-        <div className="flex items-center gap-2 mb-2.5">
-          <span
-            style={{
-              fontSize: 11.5,
-              fontWeight: 900,
-              color: "#A78BFA",
-            }}
-          >
-            حزمة أندرويد الأصلية
-          </span>
-          <div
-            className="flex-1"
-            style={{
-              height: 1,
-              background:
-                "linear-gradient(270deg, rgba(167,139,250,0.25), transparent)",
-            }}
-          />
-        </div>
-
-        <div
-          className="overflow-hidden rounded-2xl"
-          style={{
-            backgroundColor: colors.card,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          <button
-            onClick={onOpenKotlinExporter}
-            className="w-full flex items-center justify-between p-3.5 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(139, 92, 246, 0.16)",
-                  border: "1px solid rgba(167, 139, 250, 0.32)",
-                }}
-              >
-                <Code2 size={17} color="#C4B5FD" />
-              </div>
-              <div className="text-right">
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  كود الأندرويد الأصلي (Kotlin + Media3)
-                </div>
-                <div style={{ fontSize: 10.5, color: colors.textMuted }}>
-                  استعراض وتصدير ملفات مشروع أندرويد الكامل
                 </div>
               </div>
             </div>
@@ -7921,16 +8338,22 @@ export function NovaSettingsScreen({
           <div
             onClick={() => setShowSupportModal(false)}
             className="fixed inset-0"
-            style={{ backgroundColor: "rgba(0,0,0,0.78)" }}
+            style={{
+              backgroundColor:
+                theme === "white" ? "rgba(15, 23, 42, 0.55)" : "rgba(0,0,0,0.78)",
+            }}
           />
           <div
             className="relative z-10 w-full max-w-[480px] p-5 pb-8 overflow-y-auto max-h-[90vh]"
             style={{
-              backgroundColor: "#0B131E",
+              backgroundColor: theme === "white" ? "#FFFFFF" : "#0B131E",
               borderTopLeftRadius: 30,
               borderTopRightRadius: 30,
               borderTop: "2px solid #10B981",
-              boxShadow: "0 -20px 50px rgba(0, 0, 0, 0.85)",
+              boxShadow:
+                theme === "white"
+                  ? "0 -18px 45px rgba(15, 23, 42, 0.18)"
+                  : "0 -20px 50px rgba(0, 0, 0, 0.85)",
             }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -7942,18 +8365,18 @@ export function NovaSettingsScreen({
                     height: 40,
                     borderRadius: 12,
                     background:
-                      "linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(244, 63, 94, 0.2))",
+                      "linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.22))",
                     border: "1px solid rgba(52, 211, 153, 0.45)",
                   }}
                 >
-                  <Heart size={18} color="#34D399" fill="#34D399" />
+                  <Heart size={18} color="#10B981" fill="#10B981" />
                 </div>
                 <div className="text-right">
                   <div
                     style={{
                       fontSize: 15.5,
                       fontWeight: 900,
-                      color: "#ECFDF5",
+                      color: theme === "white" ? "#0F172A" : "#ECFDF5",
                     }}
                   >
                     ادعمني ليستمر التطبيق بالعمل مجاناً
@@ -7962,7 +8385,10 @@ export function NovaSettingsScreen({
                     style={{
                       fontSize: 10.5,
                       fontWeight: 600,
-                      color: "rgba(226, 232, 240, 0.65)",
+                      color:
+                        theme === "white"
+                          ? "#64748B"
+                          : "rgba(226, 232, 240, 0.65)",
                     }}
                   >
                     دعمك يحافظ على خوادم الحلقات السريعة بدون رسوم إجبارية
@@ -7978,140 +8404,148 @@ export function NovaSettingsScreen({
                   width: 36,
                   height: 36,
                   borderRadius: 12,
-                  backgroundColor: "rgba(255,255,255,0.08)",
+                  backgroundColor:
+                    theme === "white"
+                      ? "#F1F5F9"
+                      : "rgba(255,255,255,0.08)",
                 }}
               >
-                <X size={16} color="#FFFFFF" />
+                <X
+                  size={16}
+                  color={theme === "white" ? "#0F172A" : "#FFFFFF"}
+                />
               </button>
             </div>
 
-            {/* Option 1: Free Ad Watch Server Support */}
+            {/* Option 1: Support with Telegram Stars or Gifts (ادعمني بنجوم أو هدايا تلجرام) */}
             <div
-              className="p-4 rounded-2xl mb-3 flex flex-col gap-3"
+              data-testid="support-telegram-stars-card"
+              className="p-4 rounded-2xl mb-3.5 flex flex-col gap-2.5"
               style={{
-                backgroundColor: "rgba(16, 185, 129, 0.10)",
-                border: "1px solid rgba(52, 211, 153, 0.35)",
+                background:
+                  theme === "white"
+                    ? "linear-gradient(135deg, rgba(14, 165, 233, 0.10) 0%, rgba(16, 185, 129, 0.08) 100%)"
+                    : "linear-gradient(135deg, rgba(14, 165, 233, 0.16) 0%, rgba(16, 185, 129, 0.12) 100%)",
+                border: "1px solid rgba(56, 189, 248, 0.38)",
               }}
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-right">
                   <div
                     style={{
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: 900,
-                      color: "#FFFFFF",
+                      color: theme === "white" ? "#0F172A" : "#FFFFFF",
                     }}
                   >
-                    دعم مجاني عبر مشاهدة إعلان قصير (5 ثوانٍ)
+                    ادعمني بنجوم أو هدايا تلجرام ⭐🎁
                   </div>
                   <div
                     style={{
                       fontSize: 10.5,
                       fontWeight: 600,
-                      color: "rgba(226, 232, 240, 0.7)",
+                      color:
+                        theme === "white"
+                          ? "#475569"
+                          : "rgba(226, 232, 240, 0.78)",
                       marginTop: 2,
                     }}
                   >
-                    تذهب عوائد الإعلان بالكامل لتغطية تكلفة سيرفرات المشاهدة والتحميل
+                    يمكنك إرسال نجوم تلجرام (Telegram Stars) أو هدايا رمزية لدعم استمرار سيرفرات المشاهدة والتحميل
                   </div>
                 </div>
                 <span
+                  className="shrink-0"
                   style={{
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: 900,
-                    paddingLeft: 8,
-                    paddingRight: 8,
-                    paddingTop: 3,
-                    paddingBottom: 3,
-                    borderRadius: 8,
-                    backgroundColor: "rgba(16, 185, 129, 0.22)",
-                    color: "#34D399",
+                    paddingLeft: 9,
+                    paddingRight: 9,
+                    paddingTop: 4,
+                    paddingBottom: 4,
+                    borderRadius: 999,
+                    backgroundColor: "rgba(14, 165, 233, 0.2)",
+                    color: "#0284C7",
+                    border: "1px solid rgba(56, 189, 248, 0.4)",
                   }}
                 >
-                  مجاناً
+                  Telegram ⭐
                 </span>
               </div>
-
-              {adWatchProgress !== null && (
-                <div
-                  className="w-full h-2.5 rounded-full overflow-hidden"
-                  style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-                >
-                  <div
-                    className="h-full transition-all duration-300"
-                    style={{
-                      width: `${adWatchProgress}%`,
-                      background:
-                        "linear-gradient(90deg, #10B981 0%, #38BDF8 100%)",
-                    }}
-                  />
-                </div>
-              )}
-
-              <button
-                type="button"
-                data-testid="watch-support-ad-btn"
-                onClick={handleStartFreeRewardSupport}
-                className="w-full py-3 rounded-xl cursor-pointer active:scale-[0.99] transition-transform"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                  color: "#FFFFFF",
-                  fontSize: 12.5,
-                  fontWeight: 900,
-                }}
-              >
-                {adWatchProgress !== null
-                  ? `جاري دعم السيرفرات... (${adWatchProgress}%)`
-                  : `مشاهدة إعلان قصير لدعم التطبيق (رصيد دعمك: ${supportCount} ⭐)`}
-              </button>
             </div>
 
-            {/* Option 2: Optional Coffee / Server Sponsorship Tiers */}
-            <div className="mb-3">
+            {/* Option 2: Select Support Amount -> Reveals "اذهب إلى تلجرام" */}
+            <div className="mb-3.5">
               <div
                 style={{
                   fontSize: 11.5,
-                  fontWeight: 800,
-                  color: "rgba(226, 232, 240, 0.8)",
+                  fontWeight: 900,
+                  color:
+                    theme === "white"
+                      ? "#334155"
+                      : "rgba(226, 232, 240, 0.88)",
                   marginBottom: 8,
                 }}
               >
-                أو اختر باقة دعم اختيارية للسيرفرات:
+                اختر مبلغ الدعم أو الهدية عبر تلجرام:
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "coffee", title: "قهوة للمطور", amount: "1$" },
-                  { id: "server", title: "دعم السيرفر", amount: "3$" },
-                  { id: "gold", title: "الراعي الذهبي", amount: "5$" },
+                  {
+                    id: "coffee",
+                    title: "50 نجمة ⭐",
+                    subtitle: "قهوة للمطور",
+                    amount: "1$",
+                  },
+                  {
+                    id: "server",
+                    title: "150 نجمة ⭐",
+                    subtitle: "دعم السيرفر",
+                    amount: "3$",
+                  },
+                  {
+                    id: "gold",
+                    title: "هدية تلجرام 🎁",
+                    subtitle: "الراعي الذهبي",
+                    amount: "5$",
+                  },
                 ].map((tier) => {
                   const active = selectedSupportTier === tier.id;
                   return (
                     <button
                       key={tier.id}
                       type="button"
+                      data-testid={`support-tier-${tier.id}`}
                       onClick={() => {
                         setSelectedSupportTier(tier.id);
                         setSupportCount((c) => c + 1);
-                        showToast(
-                          `شكراً لاختيارك (${tier.title})! تم منحك وسام داعم Anime NOVA ❤️`
-                        );
                       }}
-                      className="p-3 rounded-xl cursor-pointer text-center transition-all"
+                      className="p-3 rounded-xl cursor-pointer text-center transition-all active:scale-[0.98]"
                       style={{
                         backgroundColor: active
-                          ? "rgba(56, 189, 248, 0.18)"
-                          : "rgba(255, 255, 255, 0.05)",
+                          ? "rgba(14, 165, 233, 0.18)"
+                          : theme === "white"
+                            ? "#F8FAFC"
+                            : "rgba(255, 255, 255, 0.05)",
                         border: active
-                          ? "1.5px solid #38BDF8"
-                          : "1px solid rgba(255, 255, 255, 0.12)",
+                          ? "1.5px solid #0EA5E9"
+                          : theme === "white"
+                            ? "1px solid #E2E8F0"
+                            : "1px solid rgba(255, 255, 255, 0.12)",
+                        boxShadow: active
+                          ? "0 8px 20px -6px rgba(14, 165, 233, 0.35)"
+                          : "none",
                       }}
                     >
                       <div
                         style={{
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: 900,
-                          color: active ? "#38BDF8" : "#FFFFFF",
+                          color: active
+                            ? "#0EA5E9"
+                            : theme === "white"
+                              ? "#0F172A"
+                              : "#FFFFFF",
                         }}
                       >
                         {tier.amount}
@@ -8119,17 +8553,94 @@ export function NovaSettingsScreen({
                       <div
                         style={{
                           fontSize: 10.5,
-                          fontWeight: 800,
-                          color: "rgba(226, 232, 240, 0.85)",
+                          fontWeight: 900,
+                          color: active
+                            ? "#0284C7"
+                            : theme === "white"
+                              ? "#334155"
+                              : "#38BDF8",
                           marginTop: 2,
                         }}
                       >
                         {tier.title}
                       </div>
+                      <div
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 700,
+                          color:
+                            theme === "white"
+                              ? "#64748B"
+                              : "rgba(226, 232, 240, 0.7)",
+                          marginTop: 1,
+                        }}
+                      >
+                        {tier.subtitle}
+                      </div>
                     </button>
                   );
                 })}
               </div>
+
+              {/* Dynamic "اذهب إلى تلجرام" button shown when a specific amount is selected */}
+              {selectedSupportTier !== "" && (
+                <div
+                  data-testid="telegram-support-action-box"
+                  className="mt-3 p-3.5 rounded-2xl flex flex-col gap-2.5"
+                  style={{
+                    backgroundColor:
+                      theme === "white"
+                        ? "#F0F9FF"
+                        : "rgba(14, 165, 233, 0.12)",
+                    border: "1.5px solid rgba(14, 165, 233, 0.45)",
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      style={{
+                        fontSize: 11.5,
+                        fontWeight: 900,
+                        color: theme === "white" ? "#0F172A" : "#E0F2FE",
+                      }}
+                    >
+                      تم اختيار باقة الدعم ({selectedSupportTier === "coffee" ? "1$ · 50 نجمة" : selectedSupportTier === "server" ? "3$ · 150 نجمة" : "5$ · هدية تلجرام"})
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: "#0EA5E9",
+                      }}
+                    >
+                      @ANIME_N0VA
+                    </span>
+                  </div>
+                  <a
+                    href="https://t.me/ANIME_N0VA"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="go-to-telegram-support-btn"
+                    onClick={() => {
+                      showToast(
+                        "شكراً لدعمك! يتم تحويلك إلى قناة وحساب تلجرام الرسمي ❤️"
+                      );
+                    }}
+                    className="w-full py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] transition-transform"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%)",
+                      color: "#FFFFFF",
+                      fontSize: 13,
+                      fontWeight: 900,
+                      textDecoration: "none",
+                      boxShadow: "0 10px 24px -8px rgba(14, 165, 233, 0.55)",
+                    }}
+                  >
+                    <ExternalLink size={15} color="#FFFFFF" />
+                    <span>اذهب إلى تلجرام</span>
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Option 3: Share App with Friends */}
@@ -8147,9 +8658,15 @@ export function NovaSettingsScreen({
               }}
               className="w-full py-3.5 rounded-2xl cursor-pointer"
               style={{
-                backgroundColor: "rgba(255, 255, 255, 0.07)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#FFFFFF",
+                backgroundColor:
+                  theme === "white"
+                    ? "#F1F5F9"
+                    : "rgba(255, 255, 255, 0.07)",
+                border:
+                  theme === "white"
+                    ? "1px solid #CBD5E1"
+                    : "1px solid rgba(255, 255, 255, 0.15)",
+                color: theme === "white" ? "#0F172A" : "#FFFFFF",
                 fontSize: 12.5,
                 fontWeight: 800,
               }}
@@ -10658,6 +11175,8 @@ export function NovaGlobalStatsScreen({
   onOpenDrawer: () => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: gsWidth, height: gsHeight } = useTvMetrics();
+  const gsCols = getGridColumnCount(gsWidth, gsHeight);
   const [activeTab, setActiveTab] = useState<GlobalStatsTabId>("top_all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -10718,8 +11237,8 @@ export function NovaGlobalStatsScreen({
         >
           <div className="flex items-center gap-3">
             <button
-              onClick={onOpenDrawer}
-              aria-label="القائمة"
+              onClick={onBack}
+              aria-label="رجوع"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -10729,7 +11248,7 @@ export function NovaGlobalStatsScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <Menu size={20} color={colors.textPrimary} />
+              <ChevronRight size={20} color={colors.textPrimary} />
             </button>
             <h1
               className="m-0"
@@ -10766,8 +11285,8 @@ export function NovaGlobalStatsScreen({
               )}
             </button>
             <button
-              onClick={onBack}
-              aria-label="رجوع"
+              onClick={onOpenDrawer}
+              aria-label="القائمة"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -10777,7 +11296,7 @@ export function NovaGlobalStatsScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <ChevronLeft size={19} color={colors.textPrimary} />
+              <Menu size={20} color={colors.textPrimary} />
             </button>
           </div>
         </div>
@@ -10846,8 +11365,11 @@ export function NovaGlobalStatsScreen({
         </div>
       </div>
 
-      {/* ── 3-Column Poster Grid with Year Overlay + Title + Format Subtitle ── */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* ── Responsive Poster Grid with Year Overlay + Title + Format Subtitle ── */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${gsCols}, minmax(0, 1fr))` }}
+      >
         {items.map((item) => (
           <div
             key={`${activeTab}-${item.id}`}
@@ -11024,6 +11546,8 @@ export function NovaComingSoonScreen({
   onOpenDrawer: () => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: csWidth, height: csHeight } = useTvMetrics();
+  const csCols = getGridColumnCount(csWidth, csHeight);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -11078,8 +11602,8 @@ export function NovaComingSoonScreen({
         >
           <div className="flex items-center gap-3">
             <button
-              onClick={onOpenDrawer}
-              aria-label="القائمة"
+              onClick={onBack}
+              aria-label="رجوع"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -11089,7 +11613,7 @@ export function NovaComingSoonScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <Menu size={20} color={colors.textPrimary} />
+              <ChevronRight size={20} color={colors.textPrimary} />
             </button>
             <h1
               className="m-0"
@@ -11126,8 +11650,8 @@ export function NovaComingSoonScreen({
               )}
             </button>
             <button
-              onClick={onBack}
-              aria-label="رجوع"
+              onClick={onOpenDrawer}
+              aria-label="القائمة"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -11137,7 +11661,7 @@ export function NovaComingSoonScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <ChevronLeft size={19} color={colors.textPrimary} />
+              <Menu size={20} color={colors.textPrimary} />
             </button>
           </div>
         </div>
@@ -11165,8 +11689,11 @@ export function NovaComingSoonScreen({
         )}
       </div>
 
-      {/* ── 3-Column Poster Grid (1:1 from Screenshot_20261027-165400) ── */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* ── Responsive Poster Grid (1:1 from Screenshot_20261027-165400) ── */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${csCols}, minmax(0, 1fr))` }}
+      >
         {items.map((item) => (
           <div
             key={item.id}
@@ -11264,6 +11791,8 @@ export function NovaLatestEpisodesScreen({
   onPlayEpisode: (anime: Anime, epNumber: number) => void;
   onOpenDetails: (anime: Anime) => void;
 }) {
+  const { width: leWidth, height: leHeight } = useTvMetrics();
+  const leCols = getGridColumnCount(leWidth, leHeight);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "today" | "top">(
@@ -11489,8 +12018,11 @@ export function NovaLatestEpisodesScreen({
         )}
       </div>
 
-      {/* ── 3-Column Full Section Grid ── */}
-      <div className="grid grid-cols-3 gap-3 p-3.5">
+      {/* ── Responsive Full Section Grid ── */}
+      <div
+        className="grid gap-3 p-3.5"
+        style={{ gridTemplateColumns: `repeat(${leCols}, minmax(0, 1fr))` }}
+      >
         {filteredEntries.map((entry) => (
           <div
             key={entry.id}

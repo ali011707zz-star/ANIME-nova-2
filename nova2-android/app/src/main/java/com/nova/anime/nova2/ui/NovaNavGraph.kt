@@ -12,7 +12,7 @@ import com.nova.anime.nova2.core.library.LibraryStore
 import com.nova.anime.nova2.core.playback.PlaybackRepository
 import com.nova.anime.nova2.core.session.SessionViewModel
 
-private const val START = "bootstrap"
+private const val START = "home"
 
 @Composable
 fun NovaNavGraph(
@@ -30,10 +30,10 @@ fun NovaNavGraph(
 ) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = START) {
-        composable(START) {
+        composable("bootstrap") {
             bootstrapContent {
                 navController.navigate("home") {
-                    popUpTo(START) { inclusive = true }
+                    popUpTo("bootstrap") { inclusive = true }
                 }
             }
         }
@@ -46,6 +46,7 @@ fun NovaNavGraph(
                 onOpenWatch = { animeId, episode -> navController.navigate("watch/$animeId/$episode") },
                 onOpenLatestEpisodes = { navController.navigate("latest-episodes") },
                 onOpenSeasons = { navController.navigate("seasons") },
+                onOpenGlobalStats = { navController.navigate("global-stats") },
                 onOpenComingSoon = { navController.navigate("coming-soon") },
                 onOpenTvLink = { navController.navigate("tv-link") },
                 onOpenBrowse = { navController.navigate("browse") },
@@ -74,6 +75,13 @@ fun NovaNavGraph(
         }
         composable("seasons") {
             SeasonsScreen(
+                repository = repository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("global-stats") {
+            GlobalStatsScreen(
                 repository = repository,
                 onOpenDetails = { navController.navigate("details/$it") },
                 onBack = { navController.popBackStack() },
@@ -145,6 +153,9 @@ fun NovaNavGraph(
             ScheduleScreen(
                 repository = repository,
                 onOpenDetails = { navController.navigate("details/$it") },
+                onOpenWatch = { animeId, episode ->
+                    navController.navigate("watch/$animeId/$episode")
+                },
                 onBack = { navController.popBackStack() },
             )
         }
