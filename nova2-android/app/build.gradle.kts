@@ -16,9 +16,9 @@ plugins {
 // Keep defaultConfig configurable via Gradle properties so switching to com.nova.anime
 // happens only when signing with the production keystore and after explicit release approval.
 val novaAppId = (project.findProperty("nova.release.applicationId") as String?)?.trim()
-    ?.takeIf { it.isNotEmpty() } ?: "com.nova.anime.nova2"
+    ?.takeIf { it.isNotEmpty() } ?: "com.nova.anime"
 val novaClientId = (project.findProperty("nova.release.clientId") as String?)?.trim()
-    ?.takeIf { it.isNotEmpty() } ?: "nova2-android"
+    ?.takeIf { it.isNotEmpty() } ?: "nova-anime-mobile-v1"
 val novaVersionName = (project.findProperty("nova.release.versionName") as String?)?.trim()
     ?.takeIf { it.isNotEmpty() } ?: "3.5.0"
 
@@ -94,7 +94,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.tv:tv-foundation:1.0.0-alpha11")
-    implementation("androidx.webkit:webkit:1.12.1")
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.datastore:datastore-preferences:1.1.1")

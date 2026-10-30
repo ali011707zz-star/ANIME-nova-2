@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -107,10 +108,18 @@ const listKotlinFiles = (directory) =>
 if (syncFromAndroid) {
   const staleDuplicateEntries = files
     .map((file, index) => ({ file, index }))
-    .filter(({ file }) => file.path.startsWith("app/app/"));
+    .filter(
+      ({ file }) =>
+        file.path.startsWith("app/app/") ||
+        !existsSync(resolve(androidRoot, file.path)),
+    );
   const sourceFiles = files
     .map((file, index) => ({ file, index }))
-    .filter(({ file }) => !file.path.startsWith("app/app/"))
+    .filter(
+      ({ file }) =>
+        !file.path.startsWith("app/app/") &&
+        existsSync(resolve(androidRoot, file.path)),
+    )
     .map(({ file, index }) => ({
       ...file,
       index,

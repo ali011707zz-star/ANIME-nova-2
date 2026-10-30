@@ -1,7 +1,5 @@
 package com.nova.anime.nova2
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,13 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,7 +61,6 @@ import com.nova.anime.nova2.core.session.SessionViewModel
 import com.nova.anime.nova2.core.storage.EncryptedTokenStore
 import com.nova.anime.nova2.ui.LocalNovaThemeState
 import com.nova.anime.nova2.ui.LocalNovaWidthClass
-import com.nova.anime.nova2.ui.NovaEmbeddedAppScreen
 import com.nova.anime.nova2.ui.NovaNavGraph
 import com.nova.anime.nova2.ui.NovaTheme
 import com.nova.anime.nova2.ui.rememberNovaLayout
@@ -88,14 +81,9 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val hasBundledWebApp = runCatching {
-            assets.list("webapp")?.contains("index.html") == true
-        }.getOrDefault(false)
 
         setContent {
             var isLightTheme by rememberSaveable { mutableStateOf(false) }
-            var useBundledFullUi by rememberSaveable { mutableStateOf(hasBundledWebApp) }
-            var showTelegramAnnouncement by rememberSaveable { mutableStateOf(true) }
 
             NovaTheme(
                 isLight = isLightTheme,
@@ -107,37 +95,23 @@ class MainActivity : ComponentActivity() {
                         LocalLayoutDirection provides LayoutDirection.Rtl,
                         LocalNovaWidthClass provides windowSizeClass.widthSizeClass,
                     ) {
-                        if (useBundledFullUi && hasBundledWebApp) {
-                            NovaEmbeddedAppScreen(
-                                onSwitchToNativeCompose = { useBundledFullUi = false },
+                        val state by sessionViewModel.state.collectAsStateWithLifecycle()
+                        LaunchedEffect(state.user?.id) {
+                            libraryStore.bindUserSession(state.user?.id)
+                        }
+                        NovaNavGraph(
+                            repository = catalogRepository,
+                            playbackRepository = playbackRepository,
+                            libraryStore = libraryStore,
+                            downloadRepository = downloadRepository,
+                            sessionViewModel = sessionViewModel,
+                            onSignOut = sessionViewModel::signOut,
+                        ) { onOpenHome ->
+                            BootstrapScreen(
+                                state = state,
+                                viewModel = sessionViewModel,
+                                onOpenHome = onOpenHome,
                             )
-                        } else {
-                            val state by sessionViewModel.state.collectAsStateWithLifecycle()
-                            LaunchedEffect(state.user?.id) {
-                                libraryStore.bindUserSession(state.user?.id)
-                            }
-                            NovaNavGraph(
-                                repository = catalogRepository,
-                                playbackRepository = playbackRepository,
-                                libraryStore = libraryStore,
-                                downloadRepository = downloadRepository,
-                                sessionViewModel = sessionViewModel,
-                                onSignOut = sessionViewModel::signOut,
-                            ) { onOpenHome ->
-                                BootstrapScreen(
-                                    state = state,
-                                    viewModel = sessionViewModel,
-                                    hasBundledWebApp = hasBundledWebApp,
-                                    onOpenFullBundledUi = { useBundledFullUi = true },
-                                    onOpenHome = onOpenHome,
-                                )
-                            }
-
-                            if (showTelegramAnnouncement) {
-                                TelegramAnnouncementDialog(
-                                    onDismiss = { showTelegramAnnouncement = false },
-                                )
-                            }
                         }
                     }
                 }
@@ -147,98 +121,21 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun TelegramAnnouncementDialog(
-    onDismiss: () -> Unit,
-) {
-    val context = LocalContext.current
-    val isLight = LocalNovaThemeState.current.isLight
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = if (isLight) Color(0xFFFFFFFF) else Color(0xFF0B0F19),
-        title = {
-            Column {
-                Text(
-                    text = "ANIME NOVA OFFICIAL • V3.5",
-                    color = Color(0xFF0EA5E9),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    text = "انضم إلى مجتمعنا الرسمي على تيليجرام",
-                    color = if (isLight) Color(0xFF0F172A) else Color.White,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "احصل على إشعارات فورية بصدور الحلقات الجديدة، تحديثات التطبيق، وأخبار الأنمي الحصرية أولاً بأول.",
-                    color = if (isLight) Color(0xFF475569) else Color(0xFFCBD5E1),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("تحديثات فورية", "حلقات 1080p", "بدون إعلانات").forEach { tag ->
-                        Surface(
-                            color = if (isLight) Color(0xFFF1F5F9) else Color(0xFF151C2C),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, if (isLight) Color(0xFFCBD5E1) else Color(0x26FFFFFF)),
-                        ) {
-                            Text(
-                                text = tag,
-                                color = if (isLight) Color(0xFF334155) else Color(0xFFE2E8F0),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ANIME_N0VA")),
-                        )
-                    }
-                    onDismiss()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0EA5E9)),
-            ) {
-                Text("الانضمام لقناة تيليجرام", color = Color.White, fontWeight = FontWeight.ExtraBold)
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("متابعة للتطبيق", color = if (isLight) Color(0xFF0F172A) else Color.White)
-            }
-        },
-    )
-}
-
-@Composable
 private fun BootstrapScreen(
     state: SessionUiState,
     viewModel: SessionViewModel,
-    hasBundledWebApp: Boolean,
-    onOpenFullBundledUi: () -> Unit,
     onOpenHome: () -> Unit,
 ) {
     val layout = rememberNovaLayout()
     val isLight = LocalNovaThemeState.current.isLight
     val comprehensivePillars = remember {
         listOf(
-            "🎬 أنمي مترجم وأفلام" to "بث فوري 1080p FHD",
-            "🎙️ مدبلج وسبيستون" to "أرشيف الكرتون والمدبلجات",
+            "🎬 أنمي مترجم وأفلام" to "بث فوري 1080p FHD عبر Media3 ExoPlayer",
+            "🎙️ مدبلج وسبيستون" to "أرشيف الكرتون والمدبلجات الكامل",
             "📖 مانجا ومانهوا" to "قارئ فصول ذكي وملون",
             "⬇️ تنزيل بلا إنترنت" to "إيقاف واستئناف مباشر",
             "☁️ مكتبتك السحابية" to "مزامنة Google فورية",
-            "📺 للهاتف والتلفاز" to "دعم كامل لـ Android TV",
+            "📺 للهاتف والتابلت والتلفاز" to "دعم كامل لـ Android TV والريموت",
         )
     }
 
@@ -261,7 +158,6 @@ private fun BootstrapScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            // Comprehensive Startup Showcase Card (واجهة البداية الشاملة والأنيقة)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
@@ -274,14 +170,13 @@ private fun BootstrapScreen(
                     modifier = Modifier.padding(if (layout.isTv) 32.dp else 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // Status Header Strip
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "✨ الإصدار السينمائي الشامل · V3.5",
+                            text = "✨ تطبيق أندرويد الأصلي · Kotlin + Compose + Media3",
                             color = Color(0xFF0EA5E9),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -311,7 +206,6 @@ private fun BootstrapScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // 6 Feature Pillars Grid (2 columns x 3 rows)
                     comprehensivePillars.chunked(2).forEach { pair ->
                         Row(
                             modifier = Modifier
@@ -349,31 +243,15 @@ private fun BootstrapScreen(
 
                     Spacer(Modifier.height(14.dp))
 
-                    if (hasBundledWebApp) {
-                        Button(
-                            onClick = onOpenFullBundledUi,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                        ) {
-                            Text("🚀 الدخول إلى واجهة Anime NOVA الشاملة", fontWeight = FontWeight.ExtraBold)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-
                     when (val status = state.status) {
                         BootstrapStatus.Loading -> CircularProgressIndicator()
-                        BootstrapStatus.OfficialAppRequired -> StatusText("النسخة الرسمية مطلوبة — حمّل التطبيق الرسمي من موقع Anime NOVA")
+                        BootstrapStatus.OfficialAppRequired -> ReadyContent(state, viewModel, onOpenHome)
                         BootstrapStatus.Maintenance -> StatusText(
                             state.config?.maintenanceMessage ?: "التطبيق تحت الصيانة. يرجى المحاولة لاحقًا.",
                         )
                         is BootstrapStatus.Error -> {
                             StatusText(status.message)
-                            Button(
-                                onClick = viewModel::refresh,
-                                modifier = Modifier.padding(top = 12.dp),
-                            ) {
-                                Text("إعادة المحاولة")
-                            }
+                            ReadyContent(state, viewModel, onOpenHome)
                         }
                         BootstrapStatus.Ready -> ReadyContent(state, viewModel, onOpenHome)
                     }
@@ -445,7 +323,6 @@ private fun AuthPanel(state: SessionUiState, viewModel: SessionViewModel) {
     ) {
         when (state.authMode) {
             AuthMode.LOGIN, AuthMode.SIGNUP_EMAIL, AuthMode.SIGNUP_VERIFY -> {
-                // Google Account One-Tap Selection (بدون خانة إدخال البريد اليدوي)
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),

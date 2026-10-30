@@ -2019,45 +2019,279 @@ fun StardimaCatalogScreen(
 fun ScheduleScreen(
     repository: AnilistRepository,
     onOpenDetails: (Int) -> Unit,
+    onOpenWatch: (Int, Int) -> Unit = { id, _ -> onOpenDetails(id) },
     onBack: () -> Unit,
 ) {
     var items by remember { mutableStateOf<List<AiringScheduleItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var selectedDay by rememberSaveable {
+        mutableStateOf(java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK))
+    }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var sortByScore by rememberSaveable { mutableStateOf(false) }
+    var remindedIds by rememberSaveable { mutableStateOf(setOf<Int>()) }
+
+    val weekDays = remember {
+        listOf(
+            -1 to "كل الأسبوع",
+            java.util.Calendar.SATURDAY to "السبت",
+            java.util.Calendar.SUNDAY to "الأحد",
+            java.util.Calendar.MONDAY to "الاثنين",
+            java.util.Calendar.TUESDAY to "الثلاثاء",
+            java.util.Calendar.WEDNESDAY to "الأربعاء",
+            java.util.Calendar.THURSDAY to "الخميس",
+            java.util.Calendar.FRIDAY to "الجمعة",
+        )
+    }
 
     LaunchedEffect(Unit) {
         val nowSec = System.currentTimeMillis() / 1000L
-        items = runCatching { repository.loadSchedule(nowSec - 86_400L, nowSec + 6 * 86_400L) }
+        items = runCatching { repository.loadSchedule(nowSec - 2 * 86_400L, nowSec + 6 * 86_400L) }
             .getOrDefault(emptyList())
         loading = false
     }
 
+    val dayCounts = remember(items) {
+        val counts = mutableMapOf<Int, Int>()
+        items.forEach { sched ->
+            val cal = java.util.Calendar.getInstance().apply {
+                timeInMillis = sched.airingAt * 1000L
+            }
+            val d = cal.get(java.util.Calendar.DAY_OF_WEEK)
+            counts[d] = (counts[d] ?: 0) + 1
+        }
+        counts
+    }
+
+    val filteredItems = remember(items, selectedDay, searchQuery, sortByScore) {
+        val q = searchQuery.trim().lowercase()
+        items.filter { sched ->
+            val cal = java.util.Calendar.getInstance().apply {
+                timeInMillis = sched.airingAt * 1000L
+            }
+            val dayMatch = selectedDay == -1 || cal.get(java.util.Calendar.DAY_OF_WEEK) == selectedDay
+            val queryMatch = q.isEmpty() ||
+                sched.anime.displayTitle().lowercase().contains(q) ||
+                sched.anime.title.lowercase().contains(q)
+            dayMatch && queryMatch
+        }.let { list ->
+            if (sortByScore) {
+                list.sortedByDescending { it.anime.score ?: 0.0 }
+            } else {
+                list.sortedBy { it.airingAt }
+            }
+        }
+    }
+
     CatalogScaffold(title = "جدول البث الأسبوعي", onBack = onBack) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Hero Broadcast Summary Banner
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "● جدول البث المباشر بتوقيتك المحلي",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                            Text(
+                                text = "إجمالي ${items.size} حلقة أسبوعياً · ${remindedIds.size} تذكيرات مفعلة",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { sortByScore = !sortByScore },
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(
+                                text = if (sortByScore) "★ الأعلى تقييماً" else "🕒 حسب الوقت",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                        }
+                    }
+                }
+
+                // Search Input
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("ابحث عن أنمي في جدول البث...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                )
+
+                // 7-Day Filter Bar
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(weekDays, key = { it.first }) { (dayId, label) ->
+                        val active = selectedDay == dayId
+                        val count = if (dayId == -1) items.size else (dayCounts[dayId] ?: 0)
+                        FilterChip(
+                            selected = active,
+                            onClick = { selectedDay = dayId },
+                            label = {
+                                Text(
+                                    text = "$label ($count)",
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
         if (loading) {
             item { LoadingBlock() }
+        } else if (filteredItems.isEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "لا توجد حلقات مطابقة لليوم المحدد",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Button(
+                        onClick = {
+                            selectedDay = -1
+                            searchQuery = ""
+                        },
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) {
+                        Text("عرض جدول الأسبوع بالكامل")
+                    }
+                }
+            }
         } else {
-            items(items, key = { it.id }) { sched ->
+            items(filteredItems, key = { it.id }) { sched ->
+                val isReminded = sched.id in remindedIds
+                val airTimeText = remember(sched.airingAt) {
+                    val sdf = java.text.SimpleDateFormat("EEEE • hh:mm a", java.util.Locale("ar"))
+                    sdf.format(java.util.Date(sched.airingAt * 1000L))
+                }
+                val statusText = remember(sched.timeUntilAiring) {
+                    when {
+                        sched.timeUntilAiring <= 0 -> "متاح للمشاهدة الآن"
+                        sched.timeUntilAiring < 3600 -> "يُعرض خلال ${sched.timeUntilAiring / 60} دقيقة"
+                        sched.timeUntilAiring < 86_400 -> "بعد ${sched.timeUntilAiring / 3600} ساعة"
+                        else -> "بعد ${sched.timeUntilAiring / 86_400} يوم"
+                    }
+                }
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clickable { onOpenDetails(sched.anime.id) },
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isReminded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    ),
                 ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = sched.anime.coverUrl,
-                            contentDescription = sched.anime.title,
-                            modifier = Modifier.width(60.dp).height(84.dp).clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(sched.anime.title, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "الحلقة ${sched.episode}",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(
+                                model = sched.anime.coverUrl,
+                                contentDescription = sched.anime.displayTitle(),
+                                modifier = Modifier
+                                    .width(68.dp)
+                                    .height(96.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onOpenDetails(sched.anime.id) },
+                                contentScale = ContentScale.Crop,
                             )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "● $statusText",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                                Text(
+                                    text = sched.anime.displayTitle(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                Text(
+                                    text = "الحلقة ${sched.episode} · $airTimeText",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                                Text(
+                                    text = "${sched.anime.format ?: "TV"} · ★ ${sched.anime.score ?: 8.5} · 1080p FHD",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Button(
+                                onClick = { onOpenWatch(sched.anime.id, sched.episode) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("▶ مشاهدة الحلقة ${sched.episode}", fontWeight = FontWeight.ExtraBold)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    remindedIds = if (isReminded) {
+                                        remindedIds - sched.id
+                                    } else {
+                                        remindedIds + sched.id
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text(if (isReminded) "🔔 مُفعّل" else "🔔 تذكير")
+                            }
+                            OutlinedButton(
+                                onClick = { onOpenDetails(sched.anime.id) },
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("التفاصيل")
+                            }
                         }
                     }
                 }

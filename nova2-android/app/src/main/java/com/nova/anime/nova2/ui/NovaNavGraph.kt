@@ -12,7 +12,7 @@ import com.nova.anime.nova2.core.library.LibraryStore
 import com.nova.anime.nova2.core.playback.PlaybackRepository
 import com.nova.anime.nova2.core.session.SessionViewModel
 
-private const val START = "bootstrap"
+private const val START = "home"
 
 @Composable
 fun NovaNavGraph(
@@ -26,10 +26,10 @@ fun NovaNavGraph(
 ) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = START) {
-        composable(START) {
+        composable("bootstrap") {
             bootstrapContent {
                 navController.navigate("home") {
-                    popUpTo(START) { inclusive = true }
+                    popUpTo("bootstrap") { inclusive = true }
                 }
             }
         }
@@ -140,6 +140,9 @@ fun NovaNavGraph(
             ScheduleScreen(
                 repository = repository,
                 onOpenDetails = { navController.navigate("details/$it") },
+                onOpenWatch = { animeId, episode ->
+                    navController.navigate("watch/$animeId/$episode")
+                },
                 onBack = { navController.popBackStack() },
             )
         }

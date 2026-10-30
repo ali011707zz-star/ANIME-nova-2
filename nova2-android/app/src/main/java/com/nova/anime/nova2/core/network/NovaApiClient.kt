@@ -174,8 +174,23 @@ class NovaApiClient(
     suspend fun queryAniList(
         query: String,
         variables: JsonObject = JsonObject(emptyMap()),
-    ): JsonObject =
-        postPublicJson("/api/anilist", GraphQlRequest(query, variables))
+    ): JsonObject = withContext(Dispatchers.IO) {
+        runCatching {
+            postPublicJson<JsonObject, GraphQlRequest>("/api/anilist", GraphQlRequest(query, variables))
+        }.getOrElse {
+            val payload = json.encodeToString(
+                serializer<GraphQlRequest>(),
+                GraphQlRequest(query, variables),
+            )
+            val request = Request.Builder()
+                .url("https://graphql.anilist.co")
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .post(payload.toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+            executeUnauthenticated(request).use { parseBody(it) }
+        }
+    }
 
     suspend fun fetchLatestFromProvider(endpoint: String): JsonElement =
         getJson("/api/anime/$endpoint")

@@ -62,6 +62,15 @@ import {
 } from "../constants/novaColors";
 import { useTvMetrics, getGridColumnCount } from "../utils/tv";
 import { NovaInternalVideoPlayer } from "./NovaSeasonsAndMangaScreens";
+import {
+  AR_SCHEDULE_DAYS,
+  buildWeeklySchedule,
+  filterAndSortSchedule,
+  getDayLabelAr,
+  getScheduleStats,
+  ScheduleSortBy,
+  ScheduleStatusFilter,
+} from "../utils/scheduleLogic";
 
 /* ══════════════════════════════════════════════════════════════════════════
    1. AnimeDetailScreen (100% 1:1 from artifacts/nova-mobile/app/anime/[id].tsx)
@@ -4760,17 +4769,76 @@ export function NovaScheduleScreen({
   colors: ThemePalette;
   onBack: () => void;
   onOpenDetails: (anime: Anime) => void;
-  onPlayEpisode: (anime: Anime) => void;
+  onPlayEpisode: (anime: Anime, episodeNumber?: number) => void;
 }) {
+  const { width: vpWidth, tv: tvMode } = useTvMetrics();
+  const todayDay = useMemo(() => new Date().getDay(), []);
   const [mainTab, setMainTab] = useState<"schedule" | "latest">("schedule");
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+  const [selectedDay, setSelectedDay] = useState<number>(todayDay);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<ScheduleStatusFilter>("all");
+  const [sortBy, setSortBy] = useState<ScheduleSortBy>("time");
+  const [reminders, setReminders] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("nova_schedule_reminders_v1");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleReminder = (entryId: string) => {
+    setReminders((prev) => {
+      const next = prev.includes(entryId)
+        ? prev.filter((id) => id !== entryId)
+        : [...prev, entryId];
+      try {
+        localStorage.setItem(
+          "nova_schedule_reminders_v1",
+          JSON.stringify(next)
+        );
+      } catch {}
+      return next;
+    });
+  };
+
+  const fullSchedule = useMemo(
+    () => buildWeeklySchedule(animeList),
+    [animeList]
+  );
+
+  const stats = useMemo(
+    () => getScheduleStats(fullSchedule, todayDay),
+    [fullSchedule, todayDay]
+  );
+
+  const visibleEntries = useMemo(() => {
+    if (mainTab === "latest") {
+      return filterAndSortSchedule(fullSchedule, {
+        selectedDay: -1,
+        searchQuery,
+        statusFilter: "all",
+        sortBy: "score",
+      });
+    }
+    return filterAndSortSchedule(fullSchedule, {
+      selectedDay,
+      searchQuery,
+      statusFilter,
+      sortBy,
+    });
+  }, [fullSchedule, mainTab, selectedDay, searchQuery, statusFilter, sortBy]);
+
+  const gridCols = tvMode ? 3 : vpWidth >= 760 ? 2 : 1;
 
   return (
     <div
       dir="rtl"
       className="flex-1 min-h-0 flex flex-col overflow-y-auto no-scrollbar select-none"
-      style={{ backgroundColor: colors.background, paddingBottom: 32 }}
+      style={{ backgroundColor: colors.background, paddingBottom: 40 }}
     >
+      {/* Top Sticky Broadcast Navigation & Filter Header */}
       <div
         className="sticky top-0 z-20 shrink-0 px-4 pt-3.5 pb-3"
         style={{
@@ -4778,110 +4846,266 @@ export function NovaScheduleScreen({
           borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <div className="flex items-center gap-2.5 mb-3">
+        <div className="flex items-center justify-between gap-2.5 mb-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={onBack}
+              aria-label="رجوع"
+              className="flex items-center justify-center cursor-pointer"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 11,
+                backgroundColor: colors.card,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <ChevronRight size={18} color={colors.textPrimary} />
+            </button>
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background:
+                  "linear-gradient(135deg, rgba(14,165,233,0.22), rgba(139,92,246,0.22))",
+                border: "1px solid rgba(56,189,248,0.35)",
+              }}
+            >
+              <Calendar size={18} color="#38BDF8" />
+            </div>
+            <div>
+              <h1
+                className="m-0"
+                style={{
+                  fontSize: 16.5,
+                  fontWeight: 900,
+                  color: colors.textPrimary,
+                }}
+              >
+                جدول البث الأسبوعي
+              </h1>
+              <p
+                className="m-0"
+                style={{ fontSize: 11, color: colors.textMuted }}
+              >
+                مواعيد عرض الحلقات المترجمة بتوقيتك المحلي · تحديث مباشر
+              </p>
+            </div>
+          </div>
+
           <button
-            onClick={onBack}
-            aria-label="رجوع"
-            className="flex items-center justify-center cursor-pointer"
+            onClick={() =>
+              setSortBy((prev) => (prev === "time" ? "score" : "time"))
+            }
+            aria-label={
+              sortBy === "time" ? "ترتيب حسب التقييم" : "ترتيب حسب وقت البث"
+            }
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl cursor-pointer"
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: 10,
+              backgroundColor: colors.card,
+              border: `1px solid ${colors.border}`,
+              color: colors.textPrimary,
+              fontSize: 11,
+              fontWeight: 800,
+            }}
+          >
+            <ArrowUpDown size={13} color="#38BDF8" />
+            <span>{sortBy === "time" ? "حسب الوقت" : "الأعلى تقييماً"}</span>
+          </button>
+        </div>
+
+        {/* Main View Switcher: Weekly Schedule vs Latest Added Episodes */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMainTab("schedule")}
+            className="flex-1 py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-2"
+            style={{
+              backgroundColor:
+                mainTab === "schedule"
+                  ? "rgba(14,165,233,0.18)"
+                  : colors.card,
+              border: `1px solid ${
+                mainTab === "schedule" ? "#0EA5E9" : colors.border
+              }`,
+              color: mainTab === "schedule" ? "#38BDF8" : colors.textMuted,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            <Calendar size={14} />
+            <span>جدول أيام الأسبوع ({stats.totalWeeklyEpisodes})</span>
+          </button>
+          <button
+            onClick={() => setMainTab("latest")}
+            className="flex-1 py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-2"
+            style={{
+              backgroundColor:
+                mainTab === "latest"
+                  ? "rgba(139,92,246,0.22)"
+                  : colors.card,
+              border: `1px solid ${
+                mainTab === "latest" ? "#8B5CF6" : colors.border
+              }`,
+              color: mainTab === "latest" ? "#C4B5FD" : colors.textMuted,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            <Sparkles size={14} />
+            <span>أحدث الحلقات المضافة</span>
+          </button>
+        </div>
+
+        {/* Search & Status Filters */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <div
+            className="flex-1 min-w-[200px] flex items-center gap-2 px-3 py-2 rounded-xl"
+            style={{
               backgroundColor: colors.card,
               border: `1px solid ${colors.border}`,
             }}
           >
-            <ChevronRight size={18} color={colors.textPrimary} />
-          </button>
-          <div
-            className="flex items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              backgroundColor: "rgba(139,92,246,0.18)",
-              border: "1px solid rgba(139,92,246,0.3)",
-            }}
-          >
-            <Calendar size={18} color="#A78BFA" />
-          </div>
-          <div>
-            <h1
-              className="m-0"
+            <Search size={14} color={colors.textMuted} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث عن أنمي أو استوديو في جدول البث..."
+              aria-label="ابحث عن أنمي في جدول البث"
+              className="flex-1 bg-transparent border-0 outline-none text-right"
               style={{
-                fontSize: 16,
-                fontWeight: 800,
                 color: colors.textPrimary,
+                fontSize: 11.5,
+                fontWeight: 700,
+              }}
+            />
+            {searchQuery.trim().length > 0 && (
+              <button
+                onClick={() => setSearchQuery("")}
+                aria-label="مسح البحث"
+                className="cursor-pointer flex items-center justify-center"
+              >
+                <X size={13} color={colors.textMuted} />
+              </button>
+            )}
+          </div>
+
+          {mainTab === "schedule" && (
+            <div className="flex items-center gap-1.5">
+              {(
+                [
+                  { id: "all", label: "الكل" },
+                  { id: "upcoming", label: "يُبث قريباً" },
+                  { id: "aired", label: "مكتمل اليوم" },
+                ] as { id: ScheduleStatusFilter; label: string }[]
+              ).map((f) => {
+                const active = statusFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setStatusFilter(f.id)}
+                    className="px-2.5 py-2 rounded-xl cursor-pointer"
+                    style={{
+                      backgroundColor: active
+                        ? "rgba(56,189,248,0.16)"
+                        : colors.card,
+                      border: `1px solid ${
+                        active ? "rgba(56,189,248,0.45)" : colors.border
+                      }`,
+                      color: active ? "#38BDF8" : colors.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 7-Day Selector Bar + All Week Option */}
+        {mainTab === "schedule" && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar mt-3 pb-0.5">
+            <button
+              onClick={() => setSelectedDay(-1)}
+              className="shrink-0 px-3 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5"
+              style={{
+                backgroundColor:
+                  selectedDay === -1 ? colors.primary : colors.card,
+                border: `1px solid ${
+                  selectedDay === -1 ? colors.primary : colors.border
+                }`,
+                color: selectedDay === -1 ? "#FFFFFF" : colors.textMuted,
+                fontSize: 11.5,
+                fontWeight: 800,
               }}
             >
-              جدول البث الأسبوعي
-            </h1>
-            <p
-              className="m-0"
-              style={{ fontSize: 10.5, color: colors.textMuted }}
-            >
-              مواعيد عرض الحلقات بتوقيتك المحلي
-            </p>
-          </div>
-        </div>
+              <span>كل الأسبوع</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  opacity: selectedDay === -1 ? 0.95 : 0.7,
+                }}
+              >
+                ({stats.totalWeeklyEpisodes})
+              </span>
+            </button>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMainTab("schedule")}
-            className="flex-1 py-2 rounded-xl cursor-pointer"
-            style={{
-              backgroundColor:
-                mainTab === "schedule"
-                  ? "rgba(139,92,246,0.22)"
-                  : colors.card,
-              border: `1px solid ${
-                mainTab === "schedule" ? "#8B5CF6" : colors.border
-              }`,
-              color: mainTab === "schedule" ? "#fff" : colors.textMuted,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            📅 جدول الأسبوع
-          </button>
-          <button
-            onClick={() => setMainTab("latest")}
-            className="flex-1 py-2 rounded-xl cursor-pointer"
-            style={{
-              backgroundColor:
-                mainTab === "latest" ? "rgba(244,63,94,0.2)" : colors.card,
-              border: `1px solid ${
-                mainTab === "latest" ? "#f43f5e" : colors.border
-              }`,
-              color: mainTab === "latest" ? "#fff" : colors.textMuted,
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            ⚡ آخر الحلقات المضافة
-          </button>
-        </div>
-
-        {mainTab === "schedule" && (
-          <div className="flex gap-2 overflow-x-auto no-scrollbar mt-3">
-            {AR_DAYS.map((d) => {
+            {AR_SCHEDULE_DAYS.map((d) => {
               const active = selectedDay === d.id;
+              const isToday = d.id === todayDay;
+              const count = stats.dayCounts[d.id] || 0;
               return (
                 <button
                   key={d.id}
                   onClick={() => setSelectedDay(d.id)}
-                  className="shrink-0 px-3.5 py-1.5 rounded-xl cursor-pointer"
+                  className="shrink-0 px-3.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5"
                   style={{
-                    backgroundColor: active ? colors.primary : colors.card,
+                    backgroundColor: active
+                      ? colors.primary
+                      : isToday
+                      ? "rgba(14,165,233,0.12)"
+                      : colors.card,
                     border: `1px solid ${
-                      active ? colors.primary : colors.border
+                      active
+                        ? colors.primary
+                        : isToday
+                        ? "rgba(56,189,248,0.4)"
+                        : colors.border
                     }`,
-                    color: active ? "#fff" : colors.textMuted,
+                    color: active
+                      ? "#FFFFFF"
+                      : isToday
+                      ? "#38BDF8"
+                      : colors.textMuted,
                     fontSize: 11.5,
-                    fontWeight: 700,
+                    fontWeight: 800,
                   }}
                 >
-                  {d.label}
+                  <span>{d.label}</span>
+                  {isToday && (
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 900,
+                        color: active ? "#E0F2FE" : "#38BDF8",
+                      }}
+                    >
+                      • اليوم
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      fontSize: 10,
+                      opacity: active ? 0.95 : 0.7,
+                    }}
+                  >
+                    ({count})
+                  </span>
                 </button>
               );
             })}
@@ -4889,71 +5113,342 @@ export function NovaScheduleScreen({
         )}
       </div>
 
-      <div className="p-4 flex flex-col gap-2.5">
-        {animeList.map((item, idx) => (
+      {/* Broadcast Summary Hero Banner */}
+      {stats.nextHighlight && (
+        <div className="px-4 pt-4">
           <div
-            key={item.id}
-            onClick={() =>
-              mainTab === "latest" ? onPlayEpisode(item) : onOpenDetails(item)
-            }
-            className="flex items-center gap-3 p-2.5 rounded-2xl cursor-pointer"
+            className="rounded-2xl p-4 relative overflow-hidden"
             style={{
-              backgroundColor: colors.card,
-              border: `1px solid ${colors.border}`,
+              background:
+                "linear-gradient(135deg, rgba(14,165,233,0.16) 0%, rgba(139,92,246,0.16) 60%, rgba(15,23,42,0.92) 100%)",
+              border: "1px solid rgba(56,189,248,0.28)",
             }}
           >
-            <img
-              src={item.coverImage}
-              alt={item.title}
-              style={{
-                width: 60,
-                height: 84,
-                borderRadius: 10,
-                objectFit: "cover",
-              }}
-            />
-            <div className="flex-1 flex flex-col gap-1">
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 800,
-                  color: colors.textPrimary,
-                }}
-              >
-                {item.titleAr || item.title}
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#A78BFA",
-                }}
-              >
-                الحلقة {(idx % 12) + 1}
-              </span>
-              <span style={{ fontSize: 10, color: colors.textMuted }}>
-                يُعرض الساعة {18 + (idx % 5)}:30 مساءً
-              </span>
-            </div>
-            <div
-              style={{
-                paddingLeft: 10,
-                paddingRight: 10,
-                paddingTop: 5,
-                paddingBottom: 5,
-                borderRadius: 10,
-                backgroundColor: colors.accentSurface,
-                border: `1px solid ${colors.accentBorder}`,
-                fontSize: 10,
-                fontWeight: 700,
-                color: colors.accent,
-              }}
-            >
-              {mainTab === "latest" ? "مشاهدة" : "بعد 3س"}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={
+                    stats.nextHighlight.anime.coverImage ||
+                    stats.nextHighlight.anime.cover
+                  }
+                  alt={stats.nextHighlight.anime.titleAr}
+                  style={{
+                    width: 56,
+                    height: 78,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                  }}
+                />
+                <div className="min-w-0">
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      color: "#38BDF8",
+                    }}
+                  >
+                    ● بث اليوم ({getDayLabelAr(todayDay)}) ·{" "}
+                    {stats.todayCount} حلقات مجدولة · { reminders.length } تذكيرات نشطة
+                  </div>
+                  <div
+                    className="truncate mt-0.5"
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 900,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    {stats.nextHighlight.anime.titleAr ||
+                      stats.nextHighlight.anime.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: colors.textSecondary,
+                      fontWeight: 700,
+                    }}
+                  >
+                    الحلقة {stats.nextHighlight.episodeNumber} · الساعة{" "}
+                    {stats.nextHighlight.airTimeLabelAr} ·{" "}
+                    {stats.nextHighlight.studio}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    onPlayEpisode(
+                      stats.nextHighlight!.anime,
+                      stats.nextHighlight!.episodeNumber
+                    )
+                  }
+                  className="px-3.5 py-2 rounded-xl cursor-pointer flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: "#0EA5E9",
+                    color: "#FFFFFF",
+                    fontSize: 11.5,
+                    fontWeight: 900,
+                  }}
+                >
+                  <Play size={13} fill="#FFFFFF" />
+                  <span>مشاهدة الآن</span>
+                </button>
+              </div>
             </div>
           </div>
-        ))}
+        </div>
+      )}
+
+      {/* Active Day Section Header */}
+      <div className="px-4 pt-3.5 pb-1 flex items-center justify-between">
+        <div
+          style={{
+            fontSize: 13.5,
+            fontWeight: 900,
+            color: colors.textPrimary,
+          }}
+        >
+          {mainTab === "latest"
+            ? "⚡ أحدث الحلقات المضافة مؤخراً"
+            : selectedDay === -1
+            ? "📅 جدول البث الكامل لجميع أيام الأسبوع"
+            : `📅 عروض يوم ${getDayLabelAr(selectedDay)}${
+                selectedDay === todayDay ? " (اليوم)" : ""
+              }`}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: colors.textMuted,
+          }}
+        >
+          {visibleEntries.length} حلقة متاحة
+        </div>
       </div>
+
+      {/* Schedule Cards Responsive Grid */}
+      {visibleEntries.length === 0 ? (
+        <div className="p-8 flex flex-col items-center justify-center text-center gap-2">
+          <Calendar size={34} color={colors.textMuted} />
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 800,
+              color: colors.textPrimary,
+            }}
+          >
+            لا توجد حلقات مطابقة لخيارات التصفية الحالية
+          </div>
+          <div style={{ fontSize: 11.5, color: colors.textMuted }}>
+            جرّب اختيار يوم آخر أو عرض كل الأسبوع
+          </div>
+          <button
+            onClick={() => {
+              setSelectedDay(-1);
+              setStatusFilter("all");
+              setSearchQuery("");
+            }}
+            className="mt-2 px-4 py-2 rounded-xl cursor-pointer"
+            style={{
+              backgroundColor: colors.primary,
+              color: "#FFFFFF",
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            إظهار جدول الأسبوع بالكامل
+          </button>
+        </div>
+      ) : (
+        <div
+          className="p-4 grid gap-3"
+          style={{
+            gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+          }}
+        >
+          {visibleEntries.map((entry) => {
+            const isReminded = reminders.includes(entry.id);
+            const statusColor =
+              entry.slotStatus === "live"
+                ? "#10B981"
+                : entry.slotStatus === "upcoming"
+                ? "#38BDF8"
+                : "#A78BFA";
+
+            return (
+              <div
+                key={entry.id}
+                className="flex flex-col justify-between p-3 rounded-2xl transition-transform"
+                style={{
+                  backgroundColor: colors.card,
+                  border: `1px solid ${
+                    isReminded ? "rgba(56,189,248,0.45)" : colors.border
+                  }`,
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Poster with Episode Overlay */}
+                  <div
+                    onClick={() => onOpenDetails(entry.anime)}
+                    className="relative shrink-0 cursor-pointer overflow-hidden"
+                    style={{
+                      width: 74,
+                      height: 104,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <img
+                      src={entry.anime.coverImage || entry.anime.cover}
+                      alt={entry.anime.titleAr || entry.anime.title}
+                      onError={(e) => {
+                        e.currentTarget.src =
+                          "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-m1gX3iwfIsLu.png";
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                    <div
+                      className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-md"
+                      style={{
+                        backgroundColor: "rgba(9, 13, 22, 0.88)",
+                        color: "#FFFFFF",
+                        fontSize: 10,
+                        fontWeight: 900,
+                      }}
+                    >
+                      حلقة {entry.episodeNumber}
+                    </div>
+                  </div>
+
+                  {/* Episode Broadcast Details */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          color: statusColor,
+                        }}
+                      >
+                        ● {entry.dayLabel} · {entry.countdownLabelAr}
+                      </span>
+                      <span
+                        className="flex items-center gap-1"
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        <Clock size={11} color="#38BDF8" />
+                        {entry.airTimeLabelAr}
+                      </span>
+                    </div>
+
+                    <div
+                      onClick={() => onOpenDetails(entry.anime)}
+                      className="truncate cursor-pointer"
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 900,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      {entry.anime.titleAr || entry.anime.title}
+                    </div>
+
+                    <div
+                      className="truncate"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#A78BFA",
+                      }}
+                    >
+                      {entry.episodeTitleAr}
+                    </div>
+
+                    {/* Clean dot-separated metadata line (Zero-Pill discipline) */}
+                    <div
+                      className="truncate mt-0.5"
+                      style={{
+                        fontSize: 10.5,
+                        color: colors.textMuted,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {entry.studio} · {entry.genreLabelAr} ·{" "}
+                      {entry.formatLabel} · ★ {entry.anime.score} ·{" "}
+                      {entry.qualityBadge}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Row: Watch Episode, Toggle Reminder, Details */}
+                <div
+                  className="flex items-center justify-between gap-2 mt-3 pt-2.5"
+                  style={{ borderTop: `1px solid ${colors.border}` }}
+                >
+                  <button
+                    onClick={() =>
+                      onPlayEpisode(entry.anime, entry.episodeNumber)
+                    }
+                    className="flex-1 py-2 px-3 rounded-xl cursor-pointer flex items-center justify-center gap-1.5"
+                    style={{
+                      backgroundColor: "rgba(14,165,233,0.16)",
+                      border: "1px solid rgba(56,189,248,0.38)",
+                      color: "#38BDF8",
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <Play size={13} fill="#38BDF8" />
+                    <span>مشاهدة الحلقة {entry.episodeNumber}</span>
+                  </button>
+
+                  <button
+                    onClick={() => toggleReminder(entry.id)}
+                    aria-label={`تذكير عرض ${
+                      entry.anime.titleAr || entry.anime.title
+                    }`}
+                    className="py-2 px-3 rounded-xl cursor-pointer flex items-center gap-1"
+                    style={{
+                      backgroundColor: isReminded
+                        ? "rgba(16,185,129,0.16)"
+                        : colors.surface,
+                      border: `1px solid ${
+                        isReminded ? "rgba(16,185,129,0.45)" : colors.border
+                      }`,
+                      color: isReminded ? "#34D399" : colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <Bell size={13} />
+                    <span>{isReminded ? "مُفعّل" : "تذكير"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenDetails(entry.anime)}
+                    className="py-2 px-3 rounded-xl cursor-pointer"
+                    style={{
+                      backgroundColor: colors.surface,
+                      border: `1px solid ${colors.border}`,
+                      color: colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 800,
+                    }}
+                  >
+                    التفاصيل
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -7212,81 +7707,7 @@ export function NovaSettingsScreen({
             </div>
           </button>
 
-          {/* Row 2: Telegram Official Channel */}
-          <button
-            onClick={onOpenTelegramModal}
-            className="w-full flex items-center justify-between p-3.5 cursor-pointer"
-            style={{ borderBottom: `1px solid ${colors.border}` }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(56, 189, 248, 0.15)",
-                  border: "1px solid rgba(56, 189, 248, 0.32)",
-                }}
-              >
-                <Send size={16} color="#38BDF8" />
-              </div>
-              <div className="text-right">
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  نافذة قناة التيليجرام الرسمية
-                </div>
-                <div style={{ fontSize: 10.5, color: colors.textMuted }}>
-                  متابعة أخبار الأنمي والتحديثات الفورية
-                </div>
-              </div>
-            </div>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
-
-          {/* Row 3: BrandSplash Replay */}
-          <button
-            onClick={onReplaySplash}
-            className="w-full flex items-center justify-between p-3.5 cursor-pointer"
-            style={{ borderBottom: `1px solid ${colors.border}` }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(139, 92, 246, 0.16)",
-                  border: "1px solid rgba(167, 139, 250, 0.32)",
-                }}
-              >
-                <Sparkles size={16} color="#A78BFA" />
-              </div>
-              <div className="text-right">
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  معاينة شاشة البداية (BrandSplash)
-                </div>
-                <div style={{ fontSize: 10.5, color: colors.textMuted }}>
-                  إعادة تشغيل شاشة إقلاع Anime NOVA السينمائية
-                </div>
-              </div>
-            </div>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
-
-          {/* Row 4: Clear Watch History */}
+          {/* Row 2: Clear Watch History */}
           <button
             onClick={() => {
               onClearHistory();
@@ -7319,72 +7740,6 @@ export function NovaSettingsScreen({
                 </div>
                 <div style={{ fontSize: 10.5, color: colors.textMuted }}>
                   حذف كافة الحلقات من قائمة متابعة المشاهدة
-                </div>
-              </div>
-            </div>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── 5. حزمة أندرويد الأصلية (Native Android Package) ── */}
-      <div className="px-4 mt-5">
-        <div className="flex items-center gap-2 mb-2.5">
-          <span
-            style={{
-              fontSize: 11.5,
-              fontWeight: 900,
-              color: "#A78BFA",
-            }}
-          >
-            حزمة أندرويد الأصلية
-          </span>
-          <div
-            className="flex-1"
-            style={{
-              height: 1,
-              background:
-                "linear-gradient(270deg, rgba(167,139,250,0.25), transparent)",
-            }}
-          />
-        </div>
-
-        <div
-          className="overflow-hidden rounded-2xl"
-          style={{
-            backgroundColor: colors.card,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          <button
-            onClick={onOpenKotlinExporter}
-            className="w-full flex items-center justify-between p-3.5 cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  backgroundColor: "rgba(139, 92, 246, 0.16)",
-                  border: "1px solid rgba(167, 139, 250, 0.32)",
-                }}
-              >
-                <Code2 size={17} color="#C4B5FD" />
-              </div>
-              <div className="text-right">
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  كود الأندرويد الأصلي (Kotlin + Media3)
-                </div>
-                <div style={{ fontSize: 10.5, color: colors.textMuted }}>
-                  استعراض وتصدير ملفات مشروع أندرويد الكامل
                 </div>
               </div>
             </div>

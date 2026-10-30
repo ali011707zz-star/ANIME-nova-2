@@ -542,13 +542,7 @@ export default function App() {
             setShowSplash(false);
             try {
               sessionStorage.setItem("nova_splash_shown_v3", "1");
-              if (!sessionStorage.getItem("nova_tg_shown")) {
-                sessionStorage.setItem("nova_tg_shown", "1");
-                setShowTelegramModal(true);
-              }
-            } catch {
-              setShowTelegramModal(true);
-            }
+            } catch {}
           }}
         />
       )}
@@ -1099,7 +1093,9 @@ export default function App() {
               colors={colors}
               onBack={popRoute}
               onOpenDetails={(anime) => pushRoute({ type: "anime", anime })}
-              onPlayEpisode={(anime) => handleOpenWatch(anime, 1)}
+              onPlayEpisode={(anime, epNum) =>
+                handleOpenWatch(anime, epNum || 1)
+              }
             />
           </div>
         )}

@@ -659,7 +659,7 @@ export const ANIME_DATABASE: Anime[] = [
     episodesCount: 1,
     durationPerEp: '117 دقيقة',
     format: 'MOVIE',
-    coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx112151-1fa63W7ffUGp.jpg',
+    coverImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922-PEn1CTc93blC.jpg',
     bannerImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/101922-YfZhKBUDDS6L.jpg',
     bannerColor: 'from-orange-950 via-red-950 to-black',
     posterBg: 'linear-gradient(135deg, #2a1008 0%, #1a0b0e 50%, #050508 100%)',
@@ -677,7 +677,7 @@ export const ANIME_DATABASE: Anime[] = [
         titleAr: 'الفيلم الكامل: قطار اللانهاية',
         duration: '1:57:00',
         videoUrl: SAMPLE_STREAM_3,
-        thumbnail: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx112151-1fa63W7ffUGp.jpg',
+        thumbnail: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922-PEn1CTc93blC.jpg',
         synopsis: 'Full theatrical anime movie in 1080p Blu-ray quality.',
         synopsisAr: 'الفيلم السينمائي الكامل بجودة بلوراي فائقة الوضوح ومترجم للعربية.'
       }
