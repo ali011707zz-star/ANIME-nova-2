@@ -11237,8 +11237,8 @@ export function NovaGlobalStatsScreen({
         >
           <div className="flex items-center gap-3">
             <button
-              onClick={onOpenDrawer}
-              aria-label="القائمة"
+              onClick={onBack}
+              aria-label="رجوع"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -11248,7 +11248,7 @@ export function NovaGlobalStatsScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <Menu size={20} color={colors.textPrimary} />
+              <ChevronRight size={20} color={colors.textPrimary} />
             </button>
             <h1
               className="m-0"
@@ -11285,8 +11285,8 @@ export function NovaGlobalStatsScreen({
               )}
             </button>
             <button
-              onClick={onBack}
-              aria-label="رجوع"
+              onClick={onOpenDrawer}
+              aria-label="القائمة"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -11296,7 +11296,7 @@ export function NovaGlobalStatsScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <ChevronLeft size={19} color={colors.textPrimary} />
+              <Menu size={20} color={colors.textPrimary} />
             </button>
           </div>
         </div>
@@ -11602,8 +11602,8 @@ export function NovaComingSoonScreen({
         >
           <div className="flex items-center gap-3">
             <button
-              onClick={onOpenDrawer}
-              aria-label="القائمة"
+              onClick={onBack}
+              aria-label="رجوع"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -11613,7 +11613,7 @@ export function NovaComingSoonScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <Menu size={20} color={colors.textPrimary} />
+              <ChevronRight size={20} color={colors.textPrimary} />
             </button>
             <h1
               className="m-0"
@@ -11650,8 +11650,8 @@ export function NovaComingSoonScreen({
               )}
             </button>
             <button
-              onClick={onBack}
-              aria-label="رجوع"
+              onClick={onOpenDrawer}
+              aria-label="القائمة"
               className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
               style={{
                 width: 36,
@@ -11661,7 +11661,7 @@ export function NovaComingSoonScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <ChevronLeft size={19} color={colors.textPrimary} />
+              <Menu size={20} color={colors.textPrimary} />
             </button>
           </div>
         </div>

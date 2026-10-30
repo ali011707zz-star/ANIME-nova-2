@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Play,
   Bookmark,
@@ -33,6 +33,15 @@ export function BrandSplash({
   const { tv: tvMode } = useTvMetrics();
   const [fadingOut, setFadingOut] = useState(false);
   const [progress, setProgress] = useState(22);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
+  const finishedRef = useRef(false);
+
+  const handleFinishOnce = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onFinishRef.current();
+  };
 
   const isLight =
     colors?.background === "#F8FAFC" || colors?.background === "#FFFFFF";
@@ -42,7 +51,7 @@ export function BrandSplash({
     const step2 = setTimeout(() => setProgress(88), 950);
     const step3 = setTimeout(() => setProgress(100), 1450);
     const fadeTimer = setTimeout(() => setFadingOut(true), 1850);
-    const doneTimer = setTimeout(() => onFinish(), 2250);
+    const doneTimer = setTimeout(() => handleFinishOnce(), 2200);
     return () => {
       clearTimeout(step1);
       clearTimeout(step2);
@@ -50,7 +59,7 @@ export function BrandSplash({
       clearTimeout(fadeTimer);
       clearTimeout(doneTimer);
     };
-  }, [onFinish]);
+  }, []);
 
   const statusLabel =
     progress < 50
@@ -442,7 +451,7 @@ export function BrandSplash({
         <button
           type="button"
           data-testid="brand-splash-enter-btn"
-          onClick={onFinish}
+          onClick={handleFinishOnce}
           className="w-full mt-3.5 py-3 px-5 cursor-pointer active:scale-[0.99] transition-transform flex items-center justify-center gap-2"
           style={{
             borderRadius: 16,

@@ -1,5 +1,7 @@
 package com.nova.anime.nova2
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -64,6 +68,7 @@ import com.nova.anime.nova2.ui.LocalNovaWidthClass
 import com.nova.anime.nova2.ui.NovaNavGraph
 import com.nova.anime.nova2.ui.NovaTheme
 import com.nova.anime.nova2.ui.rememberNovaLayout
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val tokenStore by lazy { EncryptedTokenStore(applicationContext) }
@@ -84,6 +89,24 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var isLightTheme by rememberSaveable { mutableStateOf(false) }
+            var showStartupSplash by rememberSaveable { mutableStateOf(true) }
+            var showTelegramAnnouncement by rememberSaveable { mutableStateOf(false) }
+            var telegramShownOnce by rememberSaveable { mutableStateOf(false) }
+
+            LaunchedEffect(showStartupSplash) {
+                if (showStartupSplash) {
+                    delay(2_200L)
+                    showStartupSplash = false
+                }
+            }
+
+            LaunchedEffect(showStartupSplash, telegramShownOnce) {
+                if (!showStartupSplash && !telegramShownOnce) {
+                    delay(300L)
+                    telegramShownOnce = true
+                    showTelegramAnnouncement = true
+                }
+            }
 
             NovaTheme(
                 isLight = isLightTheme,
@@ -99,25 +122,84 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect(state.user?.id) {
                             libraryStore.bindUserSession(state.user?.id)
                         }
-                        NovaNavGraph(
-                            repository = catalogRepository,
-                            playbackRepository = playbackRepository,
-                            libraryStore = libraryStore,
-                            downloadRepository = downloadRepository,
-                            sessionViewModel = sessionViewModel,
-                            onSignOut = sessionViewModel::signOut,
-                        ) { onOpenHome ->
-                            BootstrapScreen(
-                                state = state,
-                                viewModel = sessionViewModel,
-                                onOpenHome = onOpenHome,
-                            )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            NovaNavGraph(
+                                repository = catalogRepository,
+                                playbackRepository = playbackRepository,
+                                libraryStore = libraryStore,
+                                downloadRepository = downloadRepository,
+                                sessionViewModel = sessionViewModel,
+                                onSignOut = sessionViewModel::signOut,
+                            ) { onOpenHome ->
+                                BootstrapScreen(
+                                    state = state,
+                                    viewModel = sessionViewModel,
+                                    onOpenHome = onOpenHome,
+                                )
+                            }
+
+                            if (showStartupSplash) {
+                                BootstrapScreen(
+                                    state = state,
+                                    viewModel = sessionViewModel,
+                                    onOpenHome = { showStartupSplash = false },
+                                )
+                            } else if (showTelegramAnnouncement) {
+                                TelegramAnnouncementDialog(
+                                    onDismiss = { showTelegramAnnouncement = false },
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TelegramAnnouncementDialog(
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val isLight = LocalNovaThemeState.current.isLight
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = if (isLight) Color(0xFFFFFFFF) else Color(0xFF0B0F19),
+        titleContentColor = if (isLight) Color(0xFF0F172A) else Color(0xFFFFFFFF),
+        textContentColor = if (isLight) Color(0xFF334155) else Color(0xFFE2E8F0),
+        title = {
+            Text(
+                text = "انضم إلى عائلة ANIME NOVA على تلجرام",
+                fontWeight = FontWeight.ExtraBold,
+            )
+        },
+        text = {
+            Text(
+                text = "احصل على تنبيهات الحلقات الجديدة فور صدورها، روابط تحميل التحديثات المباشرة، ودعم فني سريع عبر قناتنا الرسمية.",
+                fontWeight = FontWeight.Medium,
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ANIME_N0VA")),
+                        )
+                    }
+                    onDismiss()
+                },
+            ) {
+                Text("انضم لقناة تلجرام الآن", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("متابعة إلى التطبيق", fontWeight = FontWeight.Bold)
+            }
+        },
+    )
 }
 
 @Composable

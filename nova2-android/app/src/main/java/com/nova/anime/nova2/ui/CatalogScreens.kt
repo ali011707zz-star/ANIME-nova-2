@@ -104,6 +104,7 @@ fun HomeScreen(
     onOpenWatch: (Int, Int) -> Unit,
     onOpenLatestEpisodes: () -> Unit = {},
     onOpenSeasons: () -> Unit = {},
+    onOpenGlobalStats: () -> Unit = {},
     onOpenComingSoon: () -> Unit = {},
     onOpenTvLink: () -> Unit = {},
     onOpenBrowse: () -> Unit,
@@ -161,6 +162,7 @@ fun HomeScreen(
                         "بحث" -> onOpenSearch()
                         "أحدث الحلقات" -> onOpenLatestEpisodes()
                         "المواسم" -> onOpenSeasons()
+                        "الاحصائيات العالمية" -> onOpenGlobalStats()
                         "قريبًا" -> onOpenComingSoon()
                         "ربط التلفاز" -> onOpenTvLink()
                         "تنزيلاتي" -> onOpenDownloads()
@@ -825,6 +827,96 @@ fun ComingSoonScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun GlobalStatsScreen(
+    repository: AnilistRepository,
+    onOpenDetails: (Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    val tabs = remember {
+        listOf(
+            "top_all" to "أفضل الأنميات",
+            "top_airing" to "أفضل الأنميات المستمرة",
+            "top_movies" to "أفضل الأفلام",
+            "top_tv" to "أفضل المسلسلات",
+            "top_ova" to "أفضل الاوفا",
+            "top_ona" to "أفضل الاونا",
+        )
+    }
+    var selectedTab by rememberSaveable { mutableStateOf("top_all") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<AnimeCard>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(selectedTab, query) {
+        delay(200L)
+        loading = true
+        error = null
+        val formatFilter = when (selectedTab) {
+            "top_movies" -> "MOVIE"
+            "top_tv" -> "TV"
+            "top_ova" -> "OVA"
+            "top_ona" -> "ONA"
+            else -> null
+        }
+        val statusFilter = if (selectedTab == "top_airing") "RELEASING" else null
+        runCatching {
+            repository.browse(
+                BrowseFilters(
+                    search = query.trim().takeIf { it.isNotEmpty() },
+                    sort = "SCORE_DESC",
+                    format = formatFilter,
+                    status = statusFilter,
+                ),
+                1,
+            )
+        }.onSuccess { results = it }
+            .onFailure { error = it.message ?: "تعذر تحميل الاحصائيات العالمية" }
+        loading = false
+    }
+
+    CatalogScaffold(title = "الاحصائيات العالمية", onBack = onBack) {
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("ابحث في الإحصائيات العالمية...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(tabs, key = { it.first }) { (tabId, label) ->
+                    FilterChip(
+                        selected = selectedTab == tabId,
+                        onClick = { selectedTab = tabId },
+                        label = { Text(label, fontWeight = FontWeight.Bold) },
+                    )
+                }
+            }
+        }
+        if (loading && results.isEmpty()) item { LoadingBlock() }
+        error?.let { item { ErrorBlock(it) } }
+        if (!loading && error == null && results.isEmpty()) {
+            item {
+                Text(
+                    "لا توجد نتائج مطابقة في هذا التصنيف",
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (results.isNotEmpty()) {
+            item { NovaAnimeGrid(results, onOpenDetails) }
         }
     }
 }
@@ -2076,7 +2168,7 @@ fun ScheduleScreen(
             dayMatch && queryMatch
         }.let { list ->
             if (sortByScore) {
-                list.sortedByDescending { it.anime.score ?: 0.0 }
+                list.sortedByDescending { it.anime.score ?: 0 }
             } else {
                 list.sortedBy { it.airingAt }
             }

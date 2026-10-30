@@ -42,6 +42,7 @@ fun NovaNavGraph(
                 onOpenWatch = { animeId, episode -> navController.navigate("watch/$animeId/$episode") },
                 onOpenLatestEpisodes = { navController.navigate("latest-episodes") },
                 onOpenSeasons = { navController.navigate("seasons") },
+                onOpenGlobalStats = { navController.navigate("global-stats") },
                 onOpenComingSoon = { navController.navigate("coming-soon") },
                 onOpenTvLink = { navController.navigate("tv-link") },
                 onOpenBrowse = { navController.navigate("browse") },
@@ -69,6 +70,13 @@ fun NovaNavGraph(
         }
         composable("seasons") {
             SeasonsScreen(
+                repository = repository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("global-stats") {
+            GlobalStatsScreen(
                 repository = repository,
                 onOpenDetails = { navController.navigate("details/$it") },
                 onBack = { navController.popBackStack() },

@@ -162,6 +162,7 @@ fun NovaDrawerContent(
         NovaNavItem("الرئيسية", Icons.Default.Home),
         NovaNavItem("أحدث الحلقات", Icons.Default.PlayArrow),
         NovaNavItem("المواسم", Icons.Default.CalendarMonth),
+        NovaNavItem("الاحصائيات العالمية", Icons.Default.Star),
         NovaNavItem("قريبًا", Icons.Default.Star),
         NovaNavItem("تصفح", Icons.Default.GridView),
         NovaNavItem("بحث", Icons.Default.Search),

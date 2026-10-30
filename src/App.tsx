@@ -534,7 +534,7 @@ export default function App() {
         color: colors.text,
       }}
     >
-      {/* BrandSplash startup screen */}
+      {/* BrandSplash startup screen — never overlaps with TelegramAnnouncementModal */}
       {showSplash && (
         <BrandSplash
           colors={colors}
@@ -542,17 +542,28 @@ export default function App() {
             setShowSplash(false);
             try {
               sessionStorage.setItem("nova_splash_shown_v3", "1");
+              const params = new URLSearchParams(window.location.search);
+              const skipModals =
+                params.get("autostart") === "1" || params.get("player") === "1";
+              if (!skipModals && !sessionStorage.getItem("nova_tg_shown_v3")) {
+                sessionStorage.setItem("nova_tg_shown_v3", "1");
+                setTimeout(() => {
+                  setShowTelegramModal(true);
+                }, 320);
+              }
             } catch {}
           }}
         />
       )}
 
-      {/* Telegram Announcement Modal */}
-      <TelegramAnnouncementModal
-        visible={showTelegramModal}
-        colors={colors}
-        onDismiss={() => setShowTelegramModal(false)}
-      />
+      {/* Telegram Announcement Modal — strictly hidden while BrandSplash is mounted */}
+      {!showSplash && (
+        <TelegramAnnouncementModal
+          visible={showTelegramModal}
+          colors={colors}
+          onDismiss={() => setShowTelegramModal(false)}
+        />
+      )}
 
       {/* DrawerMenu (1:1 from components/DrawerMenu.tsx) */}
       <NovaDrawerMenu
