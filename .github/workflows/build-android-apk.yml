@@ -58,7 +58,35 @@ jobs:
             find "$output_dir" -type f -print
             exit 1
           fi
-          cp "${apk_files[0]}" ../Anime-NOVA-v3.5.apk
+          build_tools="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          aligned_apk="$RUNNER_TEMP/Anime-NOVA-v3.5-aligned.apk"
+          signed_apk="$RUNNER_TEMP/Anime-NOVA-v3.5-signed.apk"
+          keystore="$RUNNER_TEMP/nova-ci-signing.p12"
+          signing_password="$(openssl rand -hex 24)"
+
+          "$build_tools/zipalign" -f -p 4 "${apk_files[0]}" "$aligned_apk"
+          keytool -genkeypair -noprompt \
+            -storetype PKCS12 \
+            -keystore "$keystore" \
+            -storepass "$signing_password" \
+            -keypass "$signing_password" \
+            -alias nova-ci \
+            -dname "CN=Anime NOVA CI, O=Anime NOVA, C=SA" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000
+          "$build_tools/apksigner" sign \
+            --ks "$keystore" \
+            --ks-type PKCS12 \
+            --ks-key-alias nova-ci \
+            --ks-pass "pass:$signing_password" \
+            --key-pass "pass:$signing_password" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --out "$signed_apk" \
+            "$aligned_apk"
+          "$build_tools/apksigner" verify --verbose "$signed_apk"
+          cp "$signed_apk" ../Anime-NOVA-v3.5.apk
 
       - name: Upload Single Ready-to-Install Anime NOVA APK
         uses: actions/upload-artifact@v4
