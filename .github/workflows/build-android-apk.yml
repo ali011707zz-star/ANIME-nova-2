@@ -26,6 +26,8 @@ jobs:
           npm install --legacy-peer-deps
           node scripts/materialize-kotlin-android.mjs --write
           npm run build
+          rm -rf dist/assets/aistudio dist/reference dist/verified_*.png
+          rm -rf nova2-android/app/src/main/assets/webapp
           mkdir -p nova2-android/app/src/main/assets/webapp
           cp -r dist/* nova2-android/app/src/main/assets/webapp/
 
@@ -46,16 +48,15 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Build Release & Debug APKs from nova2-android
+      - name: Build Single Unified Signed APK (Phone, Tablet & Android TV)
         working-directory: ./nova2-android
         run: |
-          gradle assembleDebug assembleRelease --no-daemon
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Anime-NOVA-v3.5.apk
 
-      - name: Upload Ready-to-Install Anime NOVA APK
+      - name: Upload Single Ready-to-Install Anime NOVA APK
         uses: actions/upload-artifact@v4
         with:
           name: Anime-NOVA-v3.5-Android-APK
-          path: |
-            nova2-android/app/build/outputs/apk/release/*.apk
-            nova2-android/app/build/outputs/apk/debug/*.apk
+          path: ./Anime-NOVA-v3.5.apk
           if-no-files-found: error

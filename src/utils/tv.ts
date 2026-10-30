@@ -284,19 +284,37 @@ export function useTvSpatialNavigation(tv: boolean, onBackPress: () => void) {
         return;
       }
 
-      // Activate non-button focusables (cards, episode rows, pills) on Enter / D-Pad Center
+      // Activate focusables (buttons, links, cards, episode rows, pills) on Enter / D-Pad Center
       if (
-        (e.key === "Enter" || e.key === "NumpadEnter" || e.key === " ") &&
-        target &&
-        target.tagName !== "BUTTON" &&
-        target.tagName !== "INPUT" &&
-        target.tagName !== "SELECT" &&
-        target.tagName !== "TEXTAREA" &&
-        target.tagName !== "A"
+        e.key === "Enter" ||
+        e.key === "NumpadEnter" ||
+        e.key === "Select" ||
+        (e.key === " " &&
+          target &&
+          target.tagName !== "INPUT" &&
+          target.tagName !== "TEXTAREA")
       ) {
-        e.preventDefault();
-        target.click();
-        return;
+        const activeEl =
+          target && target !== document.body
+            ? target
+            : (document.activeElement as HTMLElement | null);
+        if (activeEl && activeEl !== document.body) {
+          if (
+            activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA"
+          ) {
+            activeEl.focus();
+            try {
+              (window as any).NovaAndroid?.showKeyboard?.();
+            } catch {}
+            return;
+          }
+          if (activeEl.tagName !== "SELECT") {
+            e.preventDefault();
+            activeEl.click();
+            return;
+          }
+        }
       }
 
       // When RiftPlayer is active and its HUD is hidden, let RiftPlayer handle D-Pad shortcuts directly
@@ -380,7 +398,21 @@ export function useTvSpatialNavigation(tv: boolean, onBackPress: () => void) {
       }
     };
 
+    (window as any).__novaDispatchTvKey = (key: string) => {
+      const target =
+        (document.activeElement as HTMLElement | null) || document.body;
+      const ev = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      });
+      target.dispatchEvent(ev);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      delete (window as any).__novaDispatchTvKey;
+    };
   }, [tv, onBackPress]);
 }

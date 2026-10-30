@@ -183,33 +183,36 @@ export default function App() {
   }, []);
 
   // Unified Back handler (matches artifacts/nova-mobile/app/_layout.tsx BackHandler)
-  const handleBackPress = useCallback(() => {
+  const handleBackPress = useCallback((): boolean => {
     if (drawerOpen) {
       setDrawerOpen(false);
-      return;
+      return true;
     }
     if (showKotlinExporter) {
       setShowKotlinExporter(false);
-      return;
+      return true;
     }
     if (showTelegramModal) {
       setShowTelegramModal(false);
-      return;
+      return true;
     }
     if (routeStack.length > 1) {
       popRoute();
-      return;
+      return true;
     }
     if (activeTab !== "index") {
       setActiveTab("index");
-      return;
+      return true;
     }
     if (tvMode) {
       const now = Date.now();
       if (tvExitArmedUntilRef.current > now) {
         tvExitArmedUntilRef.current = 0;
         setShowTvExitHint(false);
-        return;
+        try {
+          (window as any).NovaAndroid?.exitApp?.();
+        } catch {}
+        return false;
       }
       tvExitArmedUntilRef.current = now + 2200;
       setShowTvExitHint(true);
@@ -220,7 +223,9 @@ export default function App() {
         tvExitArmedUntilRef.current = 0;
         setShowTvExitHint(false);
       }, 2200);
+      return true;
     }
+    return false;
   }, [
     drawerOpen,
     showKotlinExporter,
@@ -230,6 +235,13 @@ export default function App() {
     tvMode,
     popRoute,
   ]);
+
+  useEffect(() => {
+    (window as any).__novaHandleBackPress = handleBackPress;
+    return () => {
+      delete (window as any).__novaHandleBackPress;
+    };
+  }, [handleBackPress]);
 
   // Enable D-Pad spatial focus and Back/Escape key navigation
   useTvSpatialNavigation(tvMode, handleBackPress);
