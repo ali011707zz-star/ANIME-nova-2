@@ -47,7 +47,18 @@ jobs:
         working-directory: ./nova2-android
         run: |
           gradle assembleRelease --no-daemon
-          cp app/build/outputs/apk/release/app-release.apk ../Anime-NOVA-v3.5.apk
+          output_dir="app/build/outputs"
+          if [ ! -d "$output_dir" ]; then
+            echo "::error::Gradle completed, but no Android build outputs directory was created."
+            exit 1
+          fi
+          mapfile -t apk_files < <(find "$output_dir" -type f -name '*.apk' -path '*/release/*' -print | sort)
+          if [ "${#apk_files[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one release APK, found ${#apk_files[@]}."
+            find "$output_dir" -type f -print
+            exit 1
+          fi
+          cp "${apk_files[0]}" ../Anime-NOVA-v3.5.apk
 
       - name: Upload Single Ready-to-Install Anime NOVA APK
         uses: actions/upload-artifact@v4
