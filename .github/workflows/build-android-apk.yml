@@ -1,0 +1,54 @@
+name: Build Anime NOVA Android APK (v3.5)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Compile Android APK (Phone & Android TV)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build Full Anime NOVA UI Assets & Bundle into nova2-android
+        run: |
+          npm install
+          npm run build
+          mkdir -p nova2-android/app/src/main/assets/webapp
+          cp -r dist/* nova2-android/app/src/main/assets/webapp/
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build Release & Debug APKs from nova2-android
+        working-directory: ./nova2-android
+        run: |
+          gradle assembleDebug assembleRelease --no-daemon
+
+      - name: Upload Ready-to-Install Anime NOVA APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Anime-NOVA-v3.5-Android-APK
+          path: |
+            nova2-android/app/build/outputs/apk/release/*.apk
+            nova2-android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

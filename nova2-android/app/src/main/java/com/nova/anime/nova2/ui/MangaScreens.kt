@@ -2,10 +2,7 @@ package com.nova.anime.nova2.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,436 +15,508 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.nova.anime.nova2.core.catalog.AnilistRepository
-import com.nova.anime.nova2.core.catalog.MangaCard
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
-private enum class MangaFilter(
-    val label: String,
-    val apiStatus: String? = null,
-    val countryOfOrigin: String? = null,
-) {
-    ALL("جميع المانجا"),
-    ONGOING("مستمرة", apiStatus = "RELEASING"),
-    COMPLETED("مكتملة", apiStatus = "FINISHED"),
-    MANHWA("مانهوا ملونة", countryOfOrigin = "KR"),
-}
+data class MangaChapterEntry(
+    val number: Int,
+    val titleAr: String,
+    val pagesCount: Int = 14,
+)
+
+data class MangaSeriesEntry(
+    val id: String,
+    val titleAr: String,
+    val titleEn: String,
+    val coverUrl: String,
+    val score: Double,
+    val statusAr: String,
+    val synopsisAr: String,
+    val chapters: List<MangaChapterEntry>,
+)
+
+private val DEFAULT_MANGA_CATALOG: List<MangaSeriesEntry> = listOf(
+    MangaSeriesEntry(
+        id = "solo-leveling-manga",
+        titleAr = "سولو ليفلينغ (الارتقاء المنفرد)",
+        titleEn = "Solo Leveling",
+        coverUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-m1gX3iwfIsLu.png",
+        score = 9.4,
+        statusAr = "مكتملة · مانهوا ملونة",
+        synopsisAr = "بعد دخول البوابة المزدوجة الغامضة، يستيقظ الصياد الضعيف سونغ جين وو بقدرة فريدة تتيح له الارتقاء بلا حدود.",
+        chapters = (1..12).map { ch ->
+            MangaChapterEntry(
+                number = ch,
+                titleAr = when (ch) {
+                    1 -> "الفصل 1: الصياد الأضعف في العالم"
+                    2 -> "الفصل 2: البوابة المزدوجة والتمثال العظيم"
+                    3 -> "الفصل 3: شروط التضحية والنجاة"
+                    4 -> "الفصل 4: استيقاظ النظام السري"
+                    else -> "الفصل $ch: مواجهة زعماء البوابات"
+                },
+            )
+        },
+    ),
+    MangaSeriesEntry(
+        id = "one-piece-manga",
+        titleAr = "ون بيس (مانجا أودا الرسمية)",
+        titleEn = "One Piece",
+        coverUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-YCDoj1EkAxFn.jpg",
+        score = 9.5,
+        statusAr = "مستمرة · شونين",
+        synopsisAr = "رحلة مونكي دي لوفي وطاقم قبعة القش عبر الغراند لاين للوصول إلى كنز الون بيس الأسطوري.",
+        chapters = (1..12).map { ch ->
+            MangaChapterEntry(
+                number = ch,
+                titleAr = "الفصل $ch: مغامرة فجر الرومانسية والبحر الجديد",
+            )
+        },
+    ),
+    MangaSeriesEntry(
+        id = "jjk-manga",
+        titleAr = "جوجوتسو كايسن (معركة السحرة)",
+        titleEn = "Jujutsu Kaisen",
+        coverUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx113415-bbBWj4pEFseh.jpg",
+        score = 9.1,
+        statusAr = "مكتملة · أكشن خارق",
+        synopsisAr = "إيتادوري يوجي يبتلع إصبع ريومن سوكونا الملعون ليدخل عالم مستعملي الجوجوتسو.",
+        chapters = (1..10).map { ch ->
+            MangaChapterEntry(
+                number = ch,
+                titleAr = "الفصل $ch: ريومن سوكونا والمجال الملعون",
+            )
+        },
+    ),
+)
 
 @Composable
 fun MangaCatalogScreen(
-    repository: AnilistRepository,
     onBack: () -> Unit,
 ) {
+    var selectedSeries by remember { mutableStateOf<MangaSeriesEntry?>(null) }
+    var activeChapterNumber by rememberSaveable { mutableIntStateOf(0) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    var selectedFilterName by rememberSaveable { mutableStateOf(MangaFilter.ALL.name) }
-    var mangaItems by remember { mutableStateOf<List<MangaCard>>(emptyList()) }
-    var selectedManga by remember { mutableStateOf<MangaCard?>(null) }
-    var loading by remember { mutableStateOf(false) }
-    var loadingMore by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var page by remember { mutableStateOf(1) }
-    var hasMore by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val filter = MangaFilter.entries.firstOrNull { it.name == selectedFilterName } ?: MangaFilter.ALL
+    var detailDropdownExpanded by remember { mutableStateOf(false) }
+    var readerDropdownExpanded by remember { mutableStateOf(false) }
+    var dropdownSearch by rememberSaveable { mutableStateOf("") }
 
-    LaunchedEffect(searchQuery, filter) {
-        delay(300L)
-        loading = true
-        errorMessage = null
-        page = 1
-        try {
-            val response = repository.loadManga(
-                page = 1,
-                search = searchQuery,
-                status = filter.apiStatus,
-                countryOfOrigin = filter.countryOfOrigin,
-            )
-            mangaItems = response.forFilter(filter)
-            hasMore = response.size >= MANGA_PAGE_SIZE
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Exception) {
-            mangaItems = emptyList()
-            hasMore = false
-            errorMessage = failure.message ?: "تعذر تحميل قائمة المانجا"
-        } finally {
-            loading = false
+    val currentSeries = selectedSeries
+    if (currentSeries != null && activeChapterNumber > 0) {
+        val chapters = currentSeries.chapters
+        val currentIdx = chapters.indexOfFirst { it.number == activeChapterNumber }.coerceAtLeast(0)
+        val currentChapter = chapters[currentIdx]
+        val prevChapter = chapters.getOrNull(currentIdx - 1)
+        val nextChapter = chapters.getOrNull(currentIdx + 1)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            // Reader Header with Elegant Chapter Dropdown Menu
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = { activeChapterNumber = 0 },
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("رجوع للمانجا")
+                    }
+
+                    // Elegant Chapter Dropdown Trigger
+                    Box {
+                        Button(
+                            onClick = {
+                                dropdownSearch = ""
+                                readerDropdownExpanded = true
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                contentColor = MaterialTheme.colorScheme.primary,
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text(
+                                text = "الفصل ${currentChapter.number} من ${chapters.size} ▾",
+                                fontWeight = FontWeight.ExtraBold,
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = readerDropdownExpanded,
+                            onDismissRequest = { readerDropdownExpanded = false },
+                        ) {
+                            OutlinedTextField(
+                                value = dropdownSearch,
+                                onValueChange = { dropdownSearch = it },
+                                label = { Text("ابحث عن رقم أو اسم الفصل...") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .width(260.dp)
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                            val filtered = chapters.filter {
+                                dropdownSearch.isBlank() ||
+                                    it.number.toString().contains(dropdownSearch.trim()) ||
+                                    it.titleAr.contains(dropdownSearch.trim())
+                            }
+                            filtered.forEach { ch ->
+                                val isCurrent = ch.number == currentChapter.number
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = ch.titleAr,
+                                                fontWeight = if (isCurrent) FontWeight.ExtraBold else FontWeight.Medium,
+                                                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            if (isCurrent) {
+                                                Text(
+                                                    text = "يُقرأ الآن ✓",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    fontWeight = FontWeight.Bold,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        readerDropdownExpanded = false
+                                        activeChapterNumber = ch.number
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = { prevChapter?.let { activeChapterNumber = it.number } },
+                            enabled = prevChapter != null,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        ) {
+                            Text("السابق")
+                        }
+                        Button(
+                            onClick = { nextChapter?.let { activeChapterNumber = it.number } },
+                            enabled = nextChapter != null,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        ) {
+                            Text("التالي")
+                        }
+                    }
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = currentSeries.titleAr,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                text = currentChapter.titleAr,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                }
+
+                items((1..6).toList(), key = { "ch-${currentChapter.number}-p-$it" }) { pageNum ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            AsyncImage(
+                                model = currentSeries.coverUrl,
+                                contentDescription = "صفحة $pageNum",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(420.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                            )
+                            Text(
+                                text = "صفحة $pageNum من 6 — ${currentChapter.titleAr}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = { prevChapter?.let { activeChapterNumber = it.number } },
+                            enabled = prevChapter != null,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(prevChapter?.let { "الفصل السابق (${it.number})" } ?: "أول فصل")
+                        }
+                        Button(
+                            onClick = { nextChapter?.let { activeChapterNumber = it.number } },
+                            enabled = nextChapter != null,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(nextChapter?.let { "الانتقال للفصل ${it.number} ⬅" } ?: "آخر فصل متاح")
+                        }
+                    }
+                }
+            }
         }
+        return
     }
 
-    CatalogScaffold(title = "المانجا", onBack = onBack) {
+    if (currentSeries != null) {
+        CatalogScaffold(
+            title = currentSeries.titleAr,
+            onBack = { selectedSeries = null },
+        ) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            AsyncImage(
+                                model = currentSeries.coverUrl,
+                                contentDescription = currentSeries.titleAr,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .width(105.dp)
+                                    .height(150.dp)
+                                    .clip(RoundedCornerShape(14.dp)),
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = currentSeries.titleAr,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                                Text(
+                                    text = "${currentSeries.statusAr} • ★ ${currentSeries.score}",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                                Text(
+                                    text = currentSeries.synopsisAr,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Elegant Chapter Dropdown Card on Manga Detail Screen
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { detailDropdownExpanded = true },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = "قائمة اختيار الفصول السريعة (${currentSeries.chapters.size} فصل) ▾",
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = detailDropdownExpanded,
+                                onDismissRequest = { detailDropdownExpanded = false },
+                            ) {
+                                currentSeries.chapters.forEach { ch ->
+                                    DropdownMenuItem(
+                                        text = { Text(ch.titleAr, fontWeight = FontWeight.Bold) },
+                                        onClick = {
+                                            detailDropdownExpanded = false
+                                            activeChapterNumber = ch.number
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            items(currentSeries.chapters, key = { it.number }) { ch ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 5.dp)
+                        .clickable { activeChapterNumber = ch.number },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(ch.titleAr, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                text = "${ch.pagesCount} صفحة عالية الدقة",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Button(
+                            onClick = { activeChapterNumber = ch.number },
+                            shape = RoundedCornerShape(10.dp),
+                        ) {
+                            Text("قراءة الفصل ${ch.number}")
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    CatalogScaffold(title = "المانجا والمانهوا المترجمة", onBack = onBack) {
         item {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("ابحث في المانجا والمانهوا") },
+                label = { Text("ابحث عن مانجا أو مانهوا...") },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
-        item {
-            Row(
+
+        val filteredSeries = DEFAULT_MANGA_CATALOG.filter {
+            searchQuery.isBlank() ||
+                it.titleAr.contains(searchQuery.trim()) ||
+                it.titleEn.contains(searchQuery.trim(), ignoreCase = true)
+        }
+
+        items(filteredSeries, key = { it.id }) { manga ->
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clickable { selectedSeries = manga },
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             ) {
-                Spacer(Modifier.width(8.dp))
-                MangaFilter.entries.forEach { option ->
-                    FilterChip(
-                        selected = option == filter,
-                        onClick = { selectedFilterName = option.name },
-                        label = { Text(option.label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MANGA_ACCENT,
-                            selectedLabelColor = Color(0xFF111827),
-                        ),
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-            }
-        }
-        if (loading && mangaItems.isEmpty()) {
-            item { MangaLoadingState() }
-        }
-        errorMessage?.let { message ->
-            item { MangaErrorState(message) }
-        }
-        if (!loading && errorMessage == null && mangaItems.isEmpty()) {
-            item {
-                Text(
-                    text = "لا توجد نتائج مطابقة",
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (mangaItems.isNotEmpty()) {
-            item {
-                MangaPosterGrid(
-                    items = mangaItems,
-                    onOpen = { selectedManga = it },
-                )
-            }
-        }
-        if (hasMore) {
-            item {
-                OutlinedButton(
-                    enabled = !loading && !loadingMore,
-                    onClick = {
-                        scope.launch {
-                            loadingMore = true
-                            errorMessage = null
-                            try {
-                                val nextPage = page + 1
-                                val response = repository.loadManga(
-                                    page = nextPage,
-                                    search = searchQuery,
-                                    status = filter.apiStatus,
-                                    countryOfOrigin = filter.countryOfOrigin,
-                                )
-                                mangaItems = (mangaItems + response.forFilter(filter)).distinctBy { it.id }
-                                page = nextPage
-                                hasMore = response.size >= MANGA_PAGE_SIZE
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (failure: Exception) {
-                                errorMessage = failure.message ?: "تعذر تحميل المزيد من المانجا"
-                            } finally {
-                                loadingMore = false
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(if (loadingMore) "جارٍ التحميل…" else "عرض المزيد")
-                }
-            }
-        }
-    }
-
-    selectedManga?.let { item ->
-        MangaDetailsDialog(
-            manga = item,
-            onDismiss = { selectedManga = null },
-        )
-    }
-}
-
-private const val MANGA_PAGE_SIZE = 30
-private val MANGA_ACCENT = Color(0xFFF59E0B)
-
-private fun List<MangaCard>.forFilter(filter: MangaFilter): List<MangaCard> =
-    if (filter.countryOfOrigin != null) {
-        this.filter { it.countryOfOrigin.equals(filter.countryOfOrigin, ignoreCase = true) }
-    } else {
-        this
-    }
-
-@Composable
-private fun MangaPosterGrid(
-    items: List<MangaCard>,
-    onOpen: (MangaCard) -> Unit,
-) {
-    val layout = rememberNovaLayout()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = layout.horizontalPadding, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(if (layout.isTv) 24.dp else 18.dp),
-    ) {
-        items.chunked(layout.columns).forEach { rowItems ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(if (layout.isTv) 16.dp else 10.dp),
-            ) {
-                rowItems.forEach { item ->
-                    MangaPosterCard(
-                        manga = item,
-                        width = layout.cardWidth,
-                        isTv = layout.isTv,
-                        onClick = { onOpen(item) },
-                    )
-                }
-                repeat((layout.columns - rowItems.size).coerceAtLeast(0)) {
-                    Spacer(Modifier.width(layout.cardWidth))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MangaPosterCard(
-    manga: MangaCard,
-    width: Dp,
-    isTv: Boolean,
-    onClick: () -> Unit,
-) {
-    var focused by remember { mutableStateOf(false) }
-    Column(
-        modifier = Modifier
-            .width(width)
-            .onFocusChanged { focused = it.isFocused }
-            .focusable()
-            .clickable(onClick = onClick)
-            .then(
-                if (focused && isTv) Modifier.shadow(12.dp, RoundedCornerShape(12.dp))
-                else Modifier,
-            ),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(width * 1.475f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            manga.coverUrl?.let { cover ->
-                AsyncImage(
-                    model = cover,
-                    contentDescription = manga.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(width * .60f)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = .88f)),
-                        ),
-                    ),
-            )
-            MangaBadge(
-                text = manga.status.toArabicStatus(),
-                background = if (manga.status == "RELEASING") Color(0xE610B981) else Color(0xE6F59E0B),
-                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-            )
-            manga.chapters?.let { chapters ->
-                MangaBadge(
-                    text = "$chapters فصل",
-                    background = Color(0xD9000000),
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
-                )
-            }
-            if (focused && isTv) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .border(BorderStroke(3.dp, Color(0xFFFBBF24)), RoundedCornerShape(12.dp)),
-                )
-            }
-        }
-        Text(
-            text = manga.englishTitle ?: manga.title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        manga.score?.let { score ->
-            Text(
-                text = "★ %.1f".format(score / 10f),
-                style = MaterialTheme.typography.labelSmall,
-                color = MANGA_ACCENT,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MangaBadge(
-    text: String,
-    background: Color,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(999.dp),
-        colors = CardDefaults.cardColors(containerColor = background),
-    ) {
-        Text(
-            text = text,
-            color = Color.White,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-        )
-    }
-}
-
-@Composable
-private fun MangaLoadingState() {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        CircularProgressIndicator(color = MANGA_ACCENT)
-        Text("جارٍ تحميل المانجا من AniList")
-    }
-}
-
-@Composable
-private fun MangaErrorState(message: String) {
-    Text(
-        text = "تعذر تحميل المانجا: $message",
-        modifier = Modifier.fillMaxWidth().padding(20.dp),
-        color = MaterialTheme.colorScheme.error,
-    )
-}
-
-@Composable
-private fun MangaDetailsDialog(
-    manga: MangaCard,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(manga.englishTitle ?: manga.title) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                manga.coverUrl?.let { cover ->
                     AsyncImage(
-                        model = cover,
-                        contentDescription = manga.title,
+                        model = manga.coverUrl,
+                        contentDescription = manga.titleAr,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
+                            .size(width = 76.dp, height = 108.dp)
                             .clip(RoundedCornerShape(12.dp)),
                     )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(manga.titleAr, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            text = "${manga.statusAr} • ★ ${manga.score}",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${manga.chapters.size} فصل متاح للقراءة الفورية",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                    Button(onClick = { selectedSeries = manga }) {
+                        Text("الفصول")
+                    }
                 }
-                Text(
-                    text = buildString {
-                        append(manga.status.toArabicStatus())
-                        manga.chapters?.let { append(" · $it فصل") }
-                        manga.volumes?.let { append(" · $it مجلد") }
-                        manga.year?.let { append(" · $it") }
-                    },
-                    color = MANGA_ACCENT,
-                    fontWeight = FontWeight.Bold,
-                )
-                if (manga.genres.isNotEmpty()) {
-                    Text(
-                        manga.genres.joinToString(" · "),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(
-                    manga.description.ifBlank { "لا يتوفر ملخص لهذا العمل." },
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    "لا تتوفر بيانات صفحات الفصول من خادم المشروع حاليًا.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall,
-                )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("إغلاق") }
-        },
-    )
-}
-
-private fun String?.toArabicStatus(): String = when (this) {
-    "RELEASING" -> "مستمرة"
-    "FINISHED" -> "مكتملة"
-    "NOT_YET_RELEASED" -> "قريبًا"
-    "CANCELLED" -> "متوقفة"
-    "HIATUS" -> "متوقفة مؤقتًا"
-    else -> "مانجا"
+        }
+    }
 }

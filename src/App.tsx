@@ -525,6 +525,7 @@ export default function App() {
       {/* BrandSplash startup screen */}
       {showSplash && (
         <BrandSplash
+          colors={colors}
           onFinish={() => {
             setShowSplash(false);
             try {
@@ -543,6 +544,7 @@ export default function App() {
       {/* Telegram Announcement Modal */}
       <TelegramAnnouncementModal
         visible={showTelegramModal}
+        colors={colors}
         onDismiss={() => setShowTelegramModal(false)}
       />
 

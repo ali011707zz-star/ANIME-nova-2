@@ -110,6 +110,7 @@ fun HomeScreen(
     onOpenAnimations: () -> Unit,
     onOpenManga: () -> Unit,
     onOpenStardima: () -> Unit,
+    onOpenManga: () -> Unit = {},
     onOpenSchedule: () -> Unit,
     onOpenNews: () -> Unit,
     onOpenLibrary: () -> Unit,
@@ -1117,6 +1118,8 @@ fun DetailsScreen(
                             )
                         }
 
+                        var showTrailerDialog by remember(id) { mutableStateOf(false) }
+
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1138,6 +1141,176 @@ fun DetailsScreen(
                                 Spacer(Modifier.width(6.dp))
                                 Text(if (favorite) "في المفضلة" else "أضف للمفضلة")
                             }
+                        }
+
+                        // Official Trailer Section (بدون كلمة عرض أفقي كامل + تصميم سينمائي من الداخل والأعلى)
+                        Spacer(Modifier.height(18.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("الإعلان الدعائي الرسمي", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                shape = RoundedCornerShape(999.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            ) {
+                                Text(
+                                    text = "1080p HD · رسمي",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                )
+                            }
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp)
+                                .clickable { showTrailerDialog = true },
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1017)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(176.dp),
+                            ) {
+                                AsyncImage(
+                                    model = item.card.bannerUrl ?: item.card.coverUrl,
+                                    contentDescription = "العرض الدعائي",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color(0x99050811)),
+                                )
+                                Surface(
+                                    color = Color(0xFF0EA5E9),
+                                    shape = RoundedCornerShape(999.dp),
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .align(Alignment.Center),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("▶", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                                    }
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(14.dp),
+                                ) {
+                                    Text(
+                                        text = "العرض التشويقي الرسمي (YouTube HD)",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.ExtraBold,
+                                    )
+                                    Text(
+                                        text = "مشغل دعائي سينمائي فائق الوضوح — اضغط للمشاهدة",
+                                        color = Color(0xFFCBD5E1),
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (showTrailerDialog) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { showTrailerDialog = false },
+                                containerColor = Color(0xFF080D18),
+                                title = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        AsyncImage(
+                                            model = item.card.coverUrl,
+                                            contentDescription = item.card.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .width(36.dp)
+                                                .height(50.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "OFFICIAL TRAILER · 1080p HD",
+                                                color = Color(0xFF38BDF8),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                            )
+                                            Text(
+                                                text = item.card.arabicTitle ?: item.card.title,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 15.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(190.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(Color.Black),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            AsyncImage(
+                                                model = item.card.bannerUrl ?: item.card.coverUrl,
+                                                contentDescription = item.card.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color(0xAA000000)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    text = "▶ العرض الدعائي الرسمي 1080p HD",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = "★ ${item.card.score?.let { "%.1f".format(it / 10f) } ?: "9.0"}  •  ${item.card.year ?: 2025}  •  ${item.card.episodes ?: 12} حلقة",
+                                            color = Color(0xFFFBBF24),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            showTrailerDialog = false
+                                            onOpenEpisodes(item.card.id)
+                                        },
+                                    ) {
+                                        Text("▶ مشاهدة الحلقات")
+                                    }
+                                },
+                                dismissButton = {
+                                    OutlinedButton(onClick = { showTrailerDialog = false }) {
+                                        Text("إغلاق")
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -1951,6 +2124,7 @@ private fun FilterRail(
     filters: BrowseFilters,
     onChange: (BrowseFilters) -> Unit,
 ) {
+    val isLight = LocalNovaThemeState.current.isLight
     val sorts = listOf(
         "POPULARITY_DESC" to "الأكثر شعبية",
         "TRENDING_DESC" to "الرائج",
@@ -1960,33 +2134,66 @@ private fun FilterRail(
     val formats = listOf(
         null to "الكل",
         "TV" to "مسلسل",
-        "MOVIE" to "فيلم",
+        "MOVIE" to "🎬 أفلام الأنمي",
         "OVA" to "OVA",
         "ONA" to "ONA",
     )
-    Column {
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(sorts) { (value, label) ->
-                FilterChip(
-                    selected = filters.sort == value,
-                    onClick = { onChange(filters.copy(sort = value)) },
-                    label = { Text(label) },
-                )
+    Surface(
+        color = if (isLight) Color(0xFFFFFFFF) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isLight) Color(0xFFE2E8F0) else MaterialTheme.colorScheme.outline),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(sorts) { (value, label) ->
+                    FilterChip(
+                        selected = filters.sort == value,
+                        onClick = { onChange(filters.copy(sort = value)) },
+                        label = {
+                            Text(
+                                text = label,
+                                color = if (filters.sort == value) {
+                                    MaterialTheme.colorScheme.primary
+                                } else if (isLight) {
+                                    Color(0xFF0F172A)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                fontWeight = FontWeight.Bold,
+                            )
+                        },
+                    )
+                }
             }
-        }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(formats) { (value, label) ->
-                FilterChip(
-                    selected = filters.format == value,
-                    onClick = { onChange(filters.copy(format = value)) },
-                    label = { Text(label) },
-                )
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(formats) { (value, label) ->
+                    FilterChip(
+                        selected = filters.format == value,
+                        onClick = { onChange(filters.copy(format = value)) },
+                        label = {
+                            Text(
+                                text = label,
+                                color = if (filters.format == value) {
+                                    MaterialTheme.colorScheme.primary
+                                } else if (isLight) {
+                                    Color(0xFF0F172A)
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                fontWeight = FontWeight.Bold,
+                            )
+                        },
+                    )
+                }
             }
         }
     }

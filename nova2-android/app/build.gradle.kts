@@ -20,7 +20,7 @@ val novaAppId = (project.findProperty("nova.release.applicationId") as String?)?
 val novaClientId = (project.findProperty("nova.release.clientId") as String?)?.trim()
     ?.takeIf { it.isNotEmpty() } ?: "nova2-android"
 val novaVersionName = (project.findProperty("nova.release.versionName") as String?)?.trim()
-    ?.takeIf { it.isNotEmpty() } ?: "1.0.0"
+    ?.takeIf { it.isNotEmpty() } ?: "3.5.0"
 
 android {
     namespace = "com.nova.anime.nova2"
@@ -30,7 +30,7 @@ android {
         applicationId = novaAppId
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
+        versionCode = 35
         versionName = novaVersionName
 
         buildConfigField("String", "NOVA_API_URL", "\"https://animenovaa.duckdns.org\"")
@@ -41,8 +41,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -94,6 +95,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.tv:tv-foundation:1.0.0-alpha11")
+    implementation("androidx.webkit:webkit:1.12.1")
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.datastore:datastore-preferences:1.1.1")

@@ -5,6 +5,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Star,
   Play,
   BookOpen,
 } from "lucide-react";
@@ -591,14 +595,31 @@ export function NovaMangaScreen({
   const [selectedManga, setSelectedManga] = useState<MangaItem | null>(null);
   const [readingChapter, setReadingChapter] = useState<number | null>(null);
   const [chapterSortAsc, setChapterSortAsc] = useState<boolean>(true);
+  const [chapterDropdownOpen, setChapterDropdownOpen] = useState<boolean>(false);
+  const [chapterDropdownQuery, setChapterDropdownQuery] = useState<string>("");
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const getChapterSubtitleAr = (chNum: number): string => {
+    const map: Record<number, string> = {
+      1: "بداية الرحلة واليقظة الأولى",
+      2: "المواجهة الثانية: اختبار القوة الحقيقية",
+      3: "أسرار الطابق المظلم والعدو الخفي",
+      4: "تحالف غير متوقع في قلب المعركة",
+      5: "ظهور القائد الأعلى وبداية الاختبار",
+      6: "انكسار الختم وتحرر الطاقة الكامنة",
+      7: "معركة القلعة الحاسمة",
+    };
+    return map[chNum] || `أحداث الفصل ${chNum}: تصاعد المواجهة الحاسمة`;
+  };
 
   // Scroll reader container to top whenever chapter changes
   useEffect(() => {
+    setChapterDropdownOpen(false);
+    setChapterDropdownQuery("");
     if (readingChapter !== null && readerScrollRef.current) {
       readerScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [readingChapter]);
+  }, [readingChapter, selectedManga]);
 
   const isLight =
     colors.background === "#F8FAFC" || colors.background === "#FFFFFF";
@@ -628,6 +649,19 @@ export function NovaMangaScreen({
     const maxCh = Math.max(1, selectedManga.chaptersCount);
     const hasPrevChapter = readingChapter > 1;
     const hasNextChapter = readingChapter < maxCh;
+    const dropdownTotal = Math.min(60, maxCh);
+    const allDropdownChapters = Array.from(
+      { length: dropdownTotal },
+      (_, idx) => idx + 1
+    ).filter((chNum) => {
+      const q = chapterDropdownQuery.trim();
+      if (!q) return true;
+      return (
+        String(chNum).includes(q) ||
+        `الفصل ${chNum}`.includes(q) ||
+        getChapterSubtitleAr(chNum).includes(q)
+      );
+    });
 
     const chapterPoolImages = [
       selectedManga.cover,
@@ -638,15 +672,7 @@ export function NovaMangaScreen({
       "https://s4.anilist.co/file/anilistcdn/media/anime/banner/101922-YfZhKBUDDS6L.jpg",
     ];
 
-    const chapterSubtitlesAr: Record<number, string> = {
-      1: "بداية الرحلة واليقظة الأولى",
-      2: "المواجهة الثانية: اختبار القوة الحقيقية",
-      3: "أسرار الطابق المظلم والعدو الخفي",
-      4: "تحالف غير متوقع في قلب المعركة",
-    };
-    const chapterTitleAr =
-      chapterSubtitlesAr[readingChapter] ||
-      `أحداث الفصل ${readingChapter}: تصاعد المواجهة الحاسمة`;
+    const chapterTitleAr = getChapterSubtitleAr(readingChapter);
 
     const pages = [0, 1, 2, 3].map((pageIdx) => {
       const imgUrl =
@@ -669,6 +695,7 @@ export function NovaMangaScreen({
     const goToChapter = (targetChapter: number) => {
       const clamped = Math.max(1, Math.min(maxCh, targetChapter));
       setReadingChapter(clamped);
+      setChapterDropdownOpen(false);
       if (readerScrollRef.current) {
         readerScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -679,119 +706,295 @@ export function NovaMangaScreen({
         ref={readerScrollRef}
         dir="rtl"
         data-testid="manga-reader-screen"
-        className="flex-1 min-h-0 flex flex-col overflow-y-auto no-scrollbar select-none"
+        className="flex-1 min-h-0 flex flex-col overflow-y-auto no-scrollbar select-none relative"
         style={{ backgroundColor: "#090D16" }}
       >
         {/* Reader Top Bar */}
         <div
-          className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 gap-2"
+          className="sticky top-0 z-40 flex flex-col"
           style={{
-            backgroundColor: "rgba(9, 13, 22, 0.95)",
-            backdropFilter: "blur(14px)",
+            backgroundColor: "rgba(9, 13, 22, 0.96)",
+            backdropFilter: "blur(16px)",
             borderBottom: "1px solid rgba(255,255,255,0.1)",
           }}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              type="button"
-              data-testid="manga-reader-back-btn"
-              onClick={() => setReadingChapter(null)}
-              className="flex items-center justify-center w-9 h-9 rounded-xl cursor-pointer shrink-0"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.14)",
-              }}
-            >
-              <ChevronRight size={19} color="#FFFFFF" />
-            </button>
-            <div className="min-w-0">
-              <div
-                className="line-clamp-1"
+          <div className="flex items-center justify-between px-3.5 py-2.5 gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                data-testid="manga-reader-back-btn"
+                onClick={() => setReadingChapter(null)}
+                className="flex items-center justify-center w-9 h-9 rounded-xl cursor-pointer shrink-0 active:scale-95 transition-transform"
                 style={{
-                  color: "#FFFFFF",
-                  fontSize: 13.5,
-                  fontWeight: 900,
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.14)",
                 }}
               >
-                {selectedManga.titleAr}
+                <ChevronRight size={19} color="#FFFFFF" />
+              </button>
+              <div className="min-w-0">
+                <div
+                  className="line-clamp-1"
+                  style={{
+                    color: "#FFFFFF",
+                    fontSize: 13,
+                    fontWeight: 900,
+                  }}
+                >
+                  {selectedManga.titleAr}
+                </div>
+                <div
+                  data-testid="manga-reader-chapter-indicator"
+                  className="line-clamp-1"
+                  style={{
+                    color: "#F59E0B",
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                  }}
+                >
+                  الفصل {readingChapter} · {chapterTitleAr}
+                </div>
               </div>
-              <div
-                data-testid="manga-reader-chapter-indicator"
-                className="line-clamp-1"
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                data-testid="manga-prev-chapter-btn"
+                disabled={!hasPrevChapter}
+                onClick={() => goToChapter(readingChapter - 1)}
+                className="px-2.5 py-1.5 rounded-xl cursor-pointer active:scale-95 transition-transform"
                 style={{
-                  color: "#F59E0B",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  color: "#FFFFFF",
                   fontSize: 11,
                   fontWeight: 800,
+                  opacity: !hasPrevChapter ? 0.4 : 1,
                 }}
               >
-                الفصل {readingChapter} · {chapterTitleAr}
-              </div>
+                السابق
+              </button>
+
+              {/* Elegant Custom Chapter Dropdown Trigger Button */}
+              <button
+                type="button"
+                data-testid="manga-chapter-dropdown-btn"
+                onClick={() => setChapterDropdownOpen((o) => !o)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl cursor-pointer active:scale-95 transition-all"
+                style={{
+                  background: chapterDropdownOpen
+                    ? "linear-gradient(135deg, rgba(245, 158, 11, 0.28) 0%, rgba(217, 119, 6, 0.22) 100%)"
+                    : "rgba(245, 158, 11, 0.14)",
+                  border: "1px solid rgba(245, 158, 11, 0.55)",
+                  boxShadow: chapterDropdownOpen
+                    ? "0 0 16px rgba(245, 158, 11, 0.35)"
+                    : "none",
+                }}
+              >
+                <BookOpen size={13} color="#FBBF24" />
+                <span
+                  style={{
+                    color: "#FBBF24",
+                    fontSize: 11.5,
+                    fontWeight: 900,
+                  }}
+                >
+                  الفصل {readingChapter}
+                </span>
+                {chapterDropdownOpen ? (
+                  <ChevronUp size={14} color="#FBBF24" />
+                ) : (
+                  <ChevronDown size={14} color="#FBBF24" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                data-testid="manga-next-chapter-btn"
+                disabled={!hasNextChapter}
+                onClick={() => goToChapter(readingChapter + 1)}
+                className="px-3 py-1.5 rounded-xl cursor-pointer active:scale-95 transition-transform"
+                style={{
+                  background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+                  color: "#090D16",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  opacity: !hasNextChapter ? 0.4 : 1,
+                }}
+              >
+                الفصل التالي
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              data-testid="manga-prev-chapter-btn"
-              disabled={!hasPrevChapter}
-              onClick={() => goToChapter(readingChapter - 1)}
-              className="px-3 py-1.5 rounded-lg cursor-pointer active:scale-95 transition-transform"
+          {/* Elegant Floating Chapter Dropdown Menu inside Reader */}
+          {chapterDropdownOpen && (
+            <div
+              data-testid="manga-chapter-dropdown-menu"
+              className="mx-3.5 mb-3 rounded-2xl overflow-hidden nova-anim-fade"
               style={{
-                backgroundColor: "rgba(255,255,255,0.1)",
-                color: "#FFFFFF",
-                fontSize: 11,
-                fontWeight: 800,
-                opacity: !hasPrevChapter ? 0.4 : 1,
+                backgroundColor: "#0F172A",
+                border: "1.5px solid rgba(245, 158, 11, 0.45)",
+                boxShadow: "0 20px 44px rgba(0, 0, 0, 0.88)",
               }}
             >
-              السابق
-            </button>
-
-            <select
-              aria-label="اختيار الفصل"
-              data-testid="manga-chapter-select"
-              value={readingChapter}
-              onChange={(e) => goToChapter(Number(e.target.value))}
-              className="px-2 py-1.5 rounded-lg outline-none cursor-pointer"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(245, 158, 11, 0.4)",
-                color: "#FBBF24",
-                fontSize: 11,
-                fontWeight: 900,
-              }}
-            >
-              {Array.from({ length: Math.min(50, maxCh) }, (_, idx) => {
-                const chNum = idx + 1;
-                return (
-                  <option
-                    key={chNum}
-                    value={chNum}
-                    style={{ backgroundColor: "#0F172A", color: "#FFFFFF" }}
+              <div
+                className="px-3.5 py-2.5 flex items-center justify-between gap-2"
+                style={{
+                  backgroundColor: "rgba(245, 158, 11, 0.10)",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen size={14} color="#F59E0B" />
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 900,
+                      color: "#FFFFFF",
+                    }}
                   >
-                    فصل {chNum}
-                  </option>
-                );
-              })}
-            </select>
+                    اختر الفصل للانتقال السريع
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    color: "#FBBF24",
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    backgroundColor: "rgba(245, 158, 11, 0.16)",
+                  }}
+                >
+                  {maxCh} فصل متاح
+                </span>
+              </div>
 
-            <button
-              type="button"
-              data-testid="manga-next-chapter-btn"
-              disabled={!hasNextChapter}
-              onClick={() => goToChapter(readingChapter + 1)}
-              className="px-3 py-1.5 rounded-lg cursor-pointer active:scale-95 transition-transform"
-              style={{
-                backgroundColor: "#F59E0B",
-                color: "#090D16",
-                fontSize: 11,
-                fontWeight: 900,
-                opacity: !hasNextChapter ? 0.4 : 1,
-              }}
-            >
-              الفصل التالي
-            </button>
-          </div>
+              {/* Search inside Dropdown */}
+              <div className="p-2.5 pb-1.5">
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
+                  style={{
+                    backgroundColor: "rgba(255, 255, 255, 0.06)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                  }}
+                >
+                  <Search size={13} color="#94A3B8" />
+                  <input
+                    type="text"
+                    data-testid="manga-dropdown-search-input"
+                    value={chapterDropdownQuery}
+                    onChange={(e) => setChapterDropdownQuery(e.target.value)}
+                    placeholder="ابحث عن رقم أو عنوان الفصل..."
+                    className="flex-1 bg-transparent outline-none text-right"
+                    style={{ fontSize: 11.5, color: "#FFFFFF" }}
+                  />
+                  {chapterDropdownQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setChapterDropdownQuery("")}
+                      className="cursor-pointer"
+                    >
+                      <X size={13} color="#94A3B8" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Chapters List inside Dropdown */}
+              <div
+                className="max-h-60 overflow-y-auto p-2 flex flex-col gap-1.5"
+              >
+                {allDropdownChapters.map((chNum) => {
+                  const active = chNum === readingChapter;
+                  return (
+                    <button
+                      key={chNum}
+                      type="button"
+                      data-testid={`manga-dropdown-item-${chNum}`}
+                      onClick={() => goToChapter(chNum)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer text-right transition-all"
+                      style={{
+                        backgroundColor: active
+                          ? "rgba(245, 158, 11, 0.18)"
+                          : "rgba(255, 255, 255, 0.03)",
+                        border: active
+                          ? "1px solid rgba(245, 158, 11, 0.55)"
+                          : "1px solid rgba(255, 255, 255, 0.06)",
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          dir="ltr"
+                          className="shrink-0 flex items-center justify-center rounded-lg"
+                          style={{
+                            width: 30,
+                            height: 26,
+                            backgroundColor: active
+                              ? "#F59E0B"
+                              : "rgba(255, 255, 255, 0.08)",
+                            color: active ? "#090D16" : "#E2E8F0",
+                            fontSize: 11,
+                            fontWeight: 900,
+                          }}
+                        >
+                          #{chNum}
+                        </span>
+                        <div className="min-w-0">
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 900,
+                              color: active ? "#FBBF24" : "#FFFFFF",
+                            }}
+                          >
+                            الفصل {chNum}
+                          </div>
+                          <div
+                            className="line-clamp-1"
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "rgba(203, 213, 225, 0.72)",
+                            }}
+                          >
+                            {getChapterSubtitleAr(chNum)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {active ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: "rgba(245, 158, 11, 0.22)",
+                            color: "#FBBF24",
+                            fontSize: 10,
+                            fontWeight: 900,
+                          }}
+                        >
+                          <Check size={11} color="#FBBF24" />
+                          <span>يُقرأ الآن</span>
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 800,
+                            color: "#94A3B8",
+                          }}
+                        >
+                          قراءة ←
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Reader Pages */}
@@ -900,12 +1103,25 @@ export function NovaMangaScreen({
     );
   }
 
-  /* ── Manga Detail & Chapters List View ── */
+  /* ── Manga Detail & Chapters List View (with Elegant Chapter Dropdown) ── */
   if (selectedManga) {
     const count = Math.min(30, selectedManga.chaptersCount);
     const chapterNumbers = Array.from({ length: count }, (_, idx) =>
       chapterSortAsc ? idx + 1 : Math.max(1, selectedManga.chaptersCount - idx)
     );
+    const detailDropdownChapters = Array.from(
+      { length: Math.min(50, selectedManga.chaptersCount) },
+      (_, idx) => idx + 1
+    ).filter((chNum) => {
+      const q = chapterDropdownQuery.trim();
+      if (!q) return true;
+      return (
+        String(chNum).includes(q) ||
+        `الفصل ${chNum}`.includes(q) ||
+        getChapterSubtitleAr(chNum).includes(q)
+      );
+    });
+
     return (
       <div
         dir="rtl"
@@ -956,91 +1172,267 @@ export function NovaMangaScreen({
           </span>
         </div>
 
-        {/* Hero Summary */}
-        <div className="p-4 flex gap-3.5 items-start">
-          <img
-            src={selectedManga.cover}
-            alt={selectedManga.title}
-            className="shrink-0 object-cover"
+        {/* Hero Summary Card */}
+        <div className="p-4">
+          <div
+            className="p-4 rounded-2xl flex gap-3.5 items-start"
             style={{
-              width: 112,
-              height: 160,
-              borderRadius: 14,
+              backgroundColor: colors.card,
               border: `1px solid ${colors.border}`,
             }}
-          />
-          <div className="flex-1 flex flex-col gap-1.5">
-            <h2
-              className="m-0"
+          >
+            <img
+              src={selectedManga.cover}
+              alt={selectedManga.title}
+              className="shrink-0 object-cover"
               style={{
-                fontSize: 16,
-                fontWeight: 900,
-                color: colors.textPrimary,
+                width: 112,
+                height: 162,
+                borderRadius: 14,
+                border: `1px solid ${colors.border}`,
               }}
-            >
-              {selectedManga.titleAr}
-            </h2>
-            <span
-              dir="ltr"
-              style={{
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: colors.textMuted,
-                textAlign: "right",
-              }}
-            >
-              {selectedManga.title}
-            </span>
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              <span
+            />
+            <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+              <h2
+                className="m-0"
                 style={{
-                  padding: "2px 8px",
-                  borderRadius: 8,
-                  backgroundColor: "rgba(16, 185, 129, 0.15)",
-                  color: "#10B981",
-                  fontSize: 10.5,
-                  fontWeight: 800,
-                }}
-              >
-                {selectedManga.status}
-              </span>
-              <span
-                style={{
-                  padding: "2px 8px",
-                  borderRadius: 8,
-                  backgroundColor: colors.card,
-                  border: `1px solid ${colors.border}`,
+                  fontSize: 16,
+                  fontWeight: 900,
                   color: colors.textPrimary,
-                  fontSize: 10.5,
-                  fontWeight: 800,
                 }}
               >
-                {selectedManga.chaptersCount} فصل
-              </span>
+                {selectedManga.titleAr}
+              </h2>
               <span
+                dir="ltr"
                 style={{
-                  padding: "2px 8px",
-                  borderRadius: 8,
-                  backgroundColor: "rgba(245, 158, 11, 0.15)",
-                  color: "#F59E0B",
-                  fontSize: 10.5,
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: colors.textMuted,
+                  textAlign: "right",
+                }}
+              >
+                {selectedManga.title}
+              </span>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 8,
+                    backgroundColor: "rgba(16, 185, 129, 0.15)",
+                    color: "#10B981",
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                  }}
+                >
+                  {selectedManga.status}
+                </span>
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 8,
+                    backgroundColor: colors.surfaceElevated,
+                    border: `1px solid ${colors.border}`,
+                    color: colors.textPrimary,
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                  }}
+                >
+                  {selectedManga.chaptersCount} فصل
+                </span>
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: 8,
+                    backgroundColor: "rgba(245, 158, 11, 0.15)",
+                    color: "#F59E0B",
+                    fontSize: 10.5,
+                    fontWeight: 900,
+                  }}
+                >
+                  ★ {selectedManga.score}
+                </span>
+              </div>
+              <p
+                className="m-0 mt-1 line-clamp-3"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: colors.textSecondary,
+                  lineHeight: "19px",
+                }}
+              >
+                {selectedManga.synopsis}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Elegant Chapter Dropdown Selector Bar on Manga Detail Screen */}
+        <div className="px-4 mb-3">
+          <div
+            className="rounded-2xl overflow-hidden"
+            style={{
+              backgroundColor: colors.card,
+              border: "1.5px solid rgba(245, 158, 11, 0.4)",
+            }}
+          >
+            <button
+              type="button"
+              data-testid="manga-detail-chapter-dropdown-btn"
+              onClick={() => setChapterDropdownOpen((o) => !o)}
+              className="w-full px-4 py-3.5 flex items-center justify-between cursor-pointer text-right"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.06) 100%)",
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="flex items-center justify-center rounded-xl shrink-0"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    backgroundColor: "rgba(245, 158, 11, 0.2)",
+                    border: "1px solid rgba(245, 158, 11, 0.45)",
+                  }}
+                >
+                  <BookOpen size={16} color="#F59E0B" />
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 900,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    قائمة اختيار فصول المانجا المنسدلة
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    اختر أي فصل من (الفصل 1 إلى {selectedManga.chaptersCount}) للانتقال الفوري
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl shrink-0"
+                style={{
+                  backgroundColor: "#F59E0B",
+                  color: "#090D16",
+                  fontSize: 11,
                   fontWeight: 900,
                 }}
               >
-                ★ {selectedManga.score}
-              </span>
-            </div>
-            <p
-              className="m-0 mt-1"
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: colors.textSecondary,
-                lineHeight: "19px",
-              }}
-            >
-              {selectedManga.synopsis}
-            </p>
+                <span>اختر الفصل</span>
+                {chapterDropdownOpen ? (
+                  <ChevronUp size={14} color="#090D16" />
+                ) : (
+                  <ChevronDown size={14} color="#090D16" />
+                )}
+              </div>
+            </button>
+
+            {chapterDropdownOpen && (
+              <div
+                data-testid="manga-detail-chapter-dropdown-menu"
+                className="p-3 flex flex-col gap-2"
+                style={{
+                  borderTop: `1px solid ${colors.border}`,
+                  backgroundColor: colors.surface,
+                }}
+              >
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{
+                    backgroundColor: colors.input,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
+                  <Search size={14} color={colors.textMuted} />
+                  <input
+                    type="text"
+                    value={chapterDropdownQuery}
+                    onChange={(e) => setChapterDropdownQuery(e.target.value)}
+                    placeholder="ابحث برقم الفصل (مثال: 2، 5، 10)..."
+                    className="flex-1 bg-transparent outline-none text-right"
+                    style={{ fontSize: 12, color: colors.textPrimary }}
+                  />
+                </div>
+
+                <div className="max-h-60 overflow-y-auto flex flex-col gap-1.5">
+                  {detailDropdownChapters.map((chNum) => (
+                    <button
+                      key={chNum}
+                      type="button"
+                      data-testid={`manga-detail-dropdown-item-${chNum}`}
+                      onClick={() => setReadingChapter(chNum)}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl cursor-pointer text-right transition-all"
+                      style={{
+                        backgroundColor: colors.card,
+                        border: `1px solid ${colors.border}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          dir="ltr"
+                          className="shrink-0 flex items-center justify-center rounded-lg"
+                          style={{
+                            width: 30,
+                            height: 26,
+                            backgroundColor: "rgba(245, 158, 11, 0.18)",
+                            color: "#F59E0B",
+                            fontSize: 11,
+                            fontWeight: 900,
+                          }}
+                        >
+                          #{chNum}
+                        </span>
+                        <div className="min-w-0">
+                          <div
+                            style={{
+                              fontSize: 12.5,
+                              fontWeight: 900,
+                              color: colors.textPrimary,
+                            }}
+                          >
+                            الفصل {chNum}
+                          </div>
+                          <div
+                            className="line-clamp-1"
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: 600,
+                              color: colors.textMuted,
+                            }}
+                          >
+                            {getChapterSubtitleAr(chNum)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <span
+                        className="px-2.5 py-1 rounded-lg shrink-0"
+                        style={{
+                          backgroundColor: "rgba(245, 158, 11, 0.16)",
+                          color: "#F59E0B",
+                          fontSize: 10.5,
+                          fontWeight: 900,
+                        }}
+                      >
+                        قراءة الفصل ←
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1100,24 +1492,36 @@ export function NovaMangaScreen({
                 border: `1px solid ${colors.border}`,
               }}
             >
-              <div className="flex items-center gap-2.5">
-                <BookOpen size={16} color="#F59E0B" />
-                <span
-                  style={{
-                    fontSize: 13.5,
-                    fontWeight: 800,
-                    color: colors.textPrimary,
-                  }}
-                >
-                  الفصل {ch}
-                </span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <BookOpen size={16} color="#F59E0B" className="shrink-0" />
+                <div className="text-right min-w-0">
+                  <div
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 800,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    الفصل {ch}
+                  </div>
+                  <div
+                    className="line-clamp-1"
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 600,
+                      color: colors.textMuted,
+                    }}
+                  >
+                    {getChapterSubtitleAr(ch)}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <span
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: colors.textMuted,
+                    color: "#F59E0B",
                   }}
                 >
                   مترجم عربي

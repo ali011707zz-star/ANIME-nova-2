@@ -51,6 +51,7 @@ fun NovaNavGraph(
                 onOpenAnimations = { navController.navigate("animations") },
                 onOpenManga = { navController.navigate("manga") },
                 onOpenStardima = { navController.navigate("stardima") },
+                onOpenManga = { navController.navigate("manga") },
                 onOpenSchedule = { navController.navigate("schedule") },
                 onOpenNews = { navController.navigate("news") },
                 onOpenLibrary = { navController.navigate("library") },
@@ -133,6 +134,11 @@ fun NovaNavGraph(
         composable("stardima") {
             StardimaCatalogScreen(
                 repository = repository,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("manga") {
+            MangaCatalogScreen(
                 onBack = { navController.popBackStack() },
             )
         }
