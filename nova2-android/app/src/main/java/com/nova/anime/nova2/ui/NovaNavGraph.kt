@@ -21,6 +21,10 @@ fun NovaNavGraph(
     libraryStore: LibraryStore,
     downloadRepository: DownloadRepository,
     sessionViewModel: SessionViewModel,
+    isLightTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
+    onReplaySplash: () -> Unit,
+    onOpenTelegramModal: () -> Unit,
     onSignOut: () -> Unit,
     bootstrapContent: @Composable (onOpenHome: () -> Unit) -> Unit,
 ) {
@@ -52,6 +56,7 @@ fun NovaNavGraph(
                 onOpenManga = { navController.navigate("manga") },
                 onOpenStardima = { navController.navigate("stardima") },
                 onOpenSchedule = { navController.navigate("schedule") },
+                onOpenGlobalStats = { navController.navigate("global-stats") },
                 onOpenNews = { navController.navigate("news") },
                 onOpenLibrary = { navController.navigate("library") },
                 onOpenSettings = { navController.navigate("settings") },
@@ -143,6 +148,13 @@ fun NovaNavGraph(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable("global-stats") {
+            GlobalStatsScreen(
+                repository = repository,
+                onOpenDetails = { navController.navigate("details/$it") },
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable("news") {
             NewsScreen(
                 repository = repository,
@@ -227,6 +239,10 @@ fun NovaNavGraph(
             SettingsScreen(
                 libraryStore = libraryStore,
                 sessionViewModel = sessionViewModel,
+                isLightTheme = isLightTheme,
+                onThemeChanged = onThemeChanged,
+                onReplaySplash = onReplaySplash,
+                onOpenTelegramModal = onOpenTelegramModal,
                 onSignOut = { onSignOut(); navController.popBackStack() },
                 onBack = { navController.popBackStack() },
             )

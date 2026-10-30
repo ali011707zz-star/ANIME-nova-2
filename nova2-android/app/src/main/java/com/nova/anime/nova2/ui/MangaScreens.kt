@@ -80,6 +80,7 @@ fun MangaCatalogScreen(
     var selectedFilterName by rememberSaveable { mutableStateOf(MangaFilter.ALL.name) }
     var mangaItems by remember { mutableStateOf<List<MangaCard>>(emptyList()) }
     var selectedManga by remember { mutableStateOf<MangaCard?>(null) }
+    var readingChapter by rememberSaveable { mutableStateOf<Int?>(null) }
     var loading by remember { mutableStateOf(false) }
     var loadingMore by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -113,104 +114,116 @@ fun MangaCatalogScreen(
         }
     }
 
-    CatalogScaffold(title = "المانجا", onBack = onBack) {
-        item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("ابحث في المانجا والمانهوا") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Spacer(Modifier.width(8.dp))
-                MangaFilter.entries.forEach { option ->
-                    FilterChip(
-                        selected = option == filter,
-                        onClick = { selectedFilterName = option.name },
-                        label = { Text(option.label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MANGA_ACCENT,
-                            selectedLabelColor = Color(0xFF111827),
-                        ),
+    val activeManga = selectedManga
+    val activeChapter = readingChapter
+    if (activeManga != null && activeChapter != null) {
+        MangaChapterReader(
+            manga = activeManga,
+            initialChapter = activeChapter,
+            onBack = { readingChapter = null },
+            onSelectChapter = { readingChapter = it },
+        )
+    } else {
+        CatalogScaffold(title = "المانجا", onBack = onBack) {
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("ابحث في المانجا والمانهوا") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Spacer(Modifier.width(8.dp))
+                    MangaFilter.entries.forEach { option ->
+                        FilterChip(
+                            selected = option == filter,
+                            onClick = { selectedFilterName = option.name },
+                            label = { Text(option.label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MANGA_ACCENT,
+                                selectedLabelColor = Color(0xFF111827),
+                            ),
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+            }
+            if (loading && mangaItems.isEmpty()) {
+                item { MangaLoadingState() }
+            }
+            errorMessage?.let { message ->
+                item { MangaErrorState(message) }
+            }
+            if (!loading && errorMessage == null && mangaItems.isEmpty()) {
+                item {
+                    Text(
+                        text = "لا توجد نتائج مطابقة",
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Spacer(Modifier.width(8.dp))
             }
-        }
-        if (loading && mangaItems.isEmpty()) {
-            item { MangaLoadingState() }
-        }
-        errorMessage?.let { message ->
-            item { MangaErrorState(message) }
-        }
-        if (!loading && errorMessage == null && mangaItems.isEmpty()) {
-            item {
-                Text(
-                    text = "لا توجد نتائج مطابقة",
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (mangaItems.isNotEmpty()) {
+                item {
+                    MangaPosterGrid(
+                        items = mangaItems,
+                        onOpen = { selectedManga = it },
+                    )
+                }
             }
-        }
-        if (mangaItems.isNotEmpty()) {
-            item {
-                MangaPosterGrid(
-                    items = mangaItems,
-                    onOpen = { selectedManga = it },
-                )
-            }
-        }
-        if (hasMore) {
-            item {
-                OutlinedButton(
-                    enabled = !loading && !loadingMore,
-                    onClick = {
-                        scope.launch {
-                            loadingMore = true
-                            errorMessage = null
-                            try {
-                                val nextPage = page + 1
-                                val response = repository.loadManga(
-                                    page = nextPage,
-                                    search = searchQuery,
-                                    status = filter.apiStatus,
-                                    countryOfOrigin = filter.countryOfOrigin,
-                                )
-                                mangaItems = (mangaItems + response.forFilter(filter)).distinctBy { it.id }
-                                page = nextPage
-                                hasMore = response.size >= MANGA_PAGE_SIZE
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (failure: Exception) {
-                                errorMessage = failure.message ?: "تعذر تحميل المزيد من المانجا"
-                            } finally {
-                                loadingMore = false
+            if (hasMore) {
+                item {
+                    OutlinedButton(
+                        enabled = !loading && !loadingMore,
+                        onClick = {
+                            scope.launch {
+                                loadingMore = true
+                                errorMessage = null
+                                try {
+                                    val nextPage = page + 1
+                                    val response = repository.loadManga(
+                                        page = nextPage,
+                                        search = searchQuery,
+                                        status = filter.apiStatus,
+                                        countryOfOrigin = filter.countryOfOrigin,
+                                    )
+                                    mangaItems = (mangaItems + response.forFilter(filter)).distinctBy { it.id }
+                                    page = nextPage
+                                    hasMore = response.size >= MANGA_PAGE_SIZE
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    errorMessage = failure.message ?: "تعذر تحميل المزيد من المانجا"
+                                } finally {
+                                    loadingMore = false
+                                }
                             }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                ) {
-                    Text(if (loadingMore) "جارٍ التحميل…" else "عرض المزيد")
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    ) {
+                        Text(if (loadingMore) "جارٍ التحميل…" else "عرض المزيد")
+                    }
                 }
             }
         }
-    }
 
-    selectedManga?.let { item ->
-        MangaDetailsDialog(
-            manga = item,
-            onDismiss = { selectedManga = null },
-        )
+        selectedManga?.let { item ->
+            MangaDetailsDialog(
+                manga = item,
+                onDismiss = { selectedManga = null },
+                onReadChapter = { readingChapter = it },
+            )
+        }
     }
 }
 
@@ -388,7 +401,11 @@ private fun MangaErrorState(message: String) {
 private fun MangaDetailsDialog(
     manga: MangaCard,
     onDismiss: () -> Unit,
+    onReadChapter: (Int) -> Unit,
 ) {
+    val maxChapter = manga.referenceChapterCount()
+    var chapterNumber by rememberSaveable(manga.id) { mutableStateOf("1") }
+    val validChapter = chapterNumber.toIntOrNull()?.takeIf { it in 1..maxChapter }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(manga.englishTitle ?: manga.title) },
@@ -431,13 +448,33 @@ private fun MangaDetailsDialog(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "لا تتوفر بيانات صفحات الفصول من خادم المشروع حاليًا.",
+                    "اختر رقم الفصل لفتحه في القارئ",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                )
+                OutlinedTextField(
+                    value = chapterNumber,
+                    onValueChange = { chapterNumber = it.filter(Char::isDigit) },
+                    label = { Text("الفصل 1 إلى $maxChapter") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "تظهر في القارئ معاينة الصور الموجودة في النسخة المرجعية؛ صور صفحات الفصول نفسها غير متاحة من خادم المشروع.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
         },
         confirmButton = {
+            TextButton(
+                enabled = validChapter != null,
+                onClick = { validChapter?.let(onReadChapter) },
+            ) {
+                Text("قراءة الفصل")
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text("إغلاق") }
         },
     )

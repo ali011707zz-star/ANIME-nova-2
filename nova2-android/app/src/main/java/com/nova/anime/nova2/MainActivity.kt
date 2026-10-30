@@ -1,5 +1,7 @@
 package com.nova.anime.nova2
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +29,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
@@ -33,6 +37,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -58,8 +64,10 @@ import com.nova.anime.nova2.core.session.SessionViewModel
 import com.nova.anime.nova2.core.storage.EncryptedTokenStore
 import com.nova.anime.nova2.ui.LocalNovaWidthClass
 import com.nova.anime.nova2.ui.NovaNavGraph
+import com.nova.anime.nova2.ui.NativeBrandSplash
 import com.nova.anime.nova2.ui.NovaTheme
 import com.nova.anime.nova2.ui.rememberNovaLayout
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val tokenStore by lazy { EncryptedTokenStore(applicationContext) }
@@ -78,7 +86,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            NovaTheme {
+            val uiPreferences = remember {
+                getSharedPreferences("nova-ui-preferences", MODE_PRIVATE)
+            }
+            var isLightTheme by rememberSaveable {
+                mutableStateOf(uiPreferences.getBoolean("light-theme", false))
+            }
+            var showBrandSplash by rememberSaveable { mutableStateOf(true) }
+            var showTelegramAnnouncement by rememberSaveable { mutableStateOf(false) }
+            var telegramShownThisSession by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(showBrandSplash) {
+                if (showBrandSplash) {
+                    delay(2_250L)
+                    showBrandSplash = false
+                    if (!telegramShownThisSession) {
+                        telegramShownThisSession = true
+                        showTelegramAnnouncement = true
+                    }
+                }
+            }
+            NovaTheme(isLight = isLightTheme) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val windowSizeClass = calculateWindowSizeClass(this@MainActivity)
                     CompositionLocalProvider(
@@ -89,21 +116,69 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect(state.user?.id) {
                             libraryStore.bindUserSession(state.user?.id)
                         }
-                        NovaNavGraph(
-                            repository = catalogRepository,
-                            playbackRepository = playbackRepository,
-                            libraryStore = libraryStore,
-                            downloadRepository = downloadRepository,
-                            sessionViewModel = sessionViewModel,
-                            onSignOut = sessionViewModel::signOut,
-                        ) { onOpenHome ->
-                            BootstrapScreen(state, sessionViewModel, onOpenHome)
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            NovaNavGraph(
+                                repository = catalogRepository,
+                                playbackRepository = playbackRepository,
+                                libraryStore = libraryStore,
+                                downloadRepository = downloadRepository,
+                                sessionViewModel = sessionViewModel,
+                                isLightTheme = isLightTheme,
+                                onThemeChanged = { light ->
+                                    isLightTheme = light
+                                    uiPreferences.edit().putBoolean("light-theme", light).apply()
+                                },
+                                onReplaySplash = { showBrandSplash = true },
+                                onOpenTelegramModal = { showTelegramAnnouncement = true },
+                                onSignOut = sessionViewModel::signOut,
+                            ) { onOpenHome ->
+                                BootstrapScreen(state, sessionViewModel, onOpenHome)
+                            }
+                            if (showTelegramAnnouncement) {
+                                TelegramAnnouncementDialog(
+                                    onDismiss = { showTelegramAnnouncement = false },
+                                )
+                            }
+                            if (showBrandSplash) {
+                                NativeBrandSplash()
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TelegramAnnouncementDialog(
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("القناة الرسمية · مجتمع Anime NOVA") },
+        text = {
+            Text("تابع القناة الرسمية لمعرفة أخبار التطبيق والحلقات الجديدة.")
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ANIME_N0VA")),
+                        )
+                    }
+                    onDismiss()
+                },
+            ) {
+                Text("زيارة القناة")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("لاحقًا") }
+        },
+    )
 }
 
 @Composable

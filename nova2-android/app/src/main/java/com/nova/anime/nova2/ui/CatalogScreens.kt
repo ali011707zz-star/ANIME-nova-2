@@ -111,6 +111,7 @@ fun HomeScreen(
     onOpenManga: () -> Unit,
     onOpenStardima: () -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenGlobalStats: () -> Unit,
     onOpenNews: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -167,6 +168,7 @@ fun HomeScreen(
                         "أنيميشن" -> onOpenAnimations()
                         "ستارديما" -> onOpenStardima()
                         "جدول البث" -> onOpenSchedule()
+                        "الإحصائيات العالمية" -> onOpenGlobalStats()
                         "الأخبار" -> onOpenNews()
                         "مكتبتي" -> onOpenLibrary()
                         "الإعدادات" -> onOpenSettings()

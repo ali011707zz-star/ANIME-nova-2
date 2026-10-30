@@ -2,6 +2,7 @@ package com.nova.anime.nova2.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -10,24 +11,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val NovaDarkColors = darkColorScheme(
-    primary = Color(0xFF8B5CF6),
+    primary = Color(0xFF0284C7),
     onPrimary = Color.White,
-    secondary = Color(0xFF22C55E),
+    secondary = Color(0xFF10B981),
     onSecondary = Color.White,
-    background = Color(0xFF09090B),
-    onBackground = Color(0xFFE8E8F0),
-    surface = Color(0xFF111116),
-    onSurface = Color(0xFFE8E8F0),
-    surfaceVariant = Color(0xFF1C1C22),
-    onSurfaceVariant = Color(0xFFB4B4C0),
-    outline = Color(0x26FFFFFF),
+    background = Color(0xFF090A0C),
+    onBackground = Color.White,
+    surface = Color(0xFF111317),
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF1A1D23),
+    onSurfaceVariant = Color(0xFF94A3B8),
+    outline = Color(0x1AFFFFFF),
     error = Color(0xFFEF4444),
 )
 
+private val NovaLightColors = lightColorScheme(
+    primary = Color(0xFF0284C7),
+    onPrimary = Color.White,
+    secondary = Color(0xFF059669),
+    onSecondary = Color.White,
+    background = Color(0xFFF8FAFC),
+    onBackground = Color(0xFF0F172A),
+    surface = Color.White,
+    onSurface = Color(0xFF0F172A),
+    surfaceVariant = Color(0xFFF1F5F9),
+    onSurfaceVariant = Color(0xFF64748B),
+    outline = Color(0x1C0F172A),
+    error = Color(0xFFDC2626),
+)
+
 @Composable
-fun NovaTheme(content: @Composable () -> Unit) {
+fun NovaTheme(
+    isLight: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     MaterialTheme(
-        colorScheme = NovaDarkColors,
+        colorScheme = if (isLight) NovaLightColors else NovaDarkColors,
         typography = androidx.compose.material3.Typography(
             displayLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.ExtraBold, fontSize = 34.sp, lineHeight = 42.sp),
             headlineLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 36.sp),

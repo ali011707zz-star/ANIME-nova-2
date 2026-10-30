@@ -26,6 +26,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -347,12 +348,24 @@ private fun EmptyLibraryMessage(message: String) {
 fun SettingsScreen(
     libraryStore: LibraryStore,
     sessionViewModel: SessionViewModel,
+    isLightTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit,
+    onReplaySplash: () -> Unit,
+    onOpenTelegramModal: () -> Unit,
     onSignOut: () -> Unit,
     onBack: () -> Unit,
 ) {
     val state by sessionViewModel.state.collectAsState()
     val context = LocalContext.current
     var confirmation by remember { mutableStateOf<SettingsAction?>(null) }
+    var notificationsEnabled by rememberSaveable {
+        mutableStateOf(
+            context.getSharedPreferences(
+                "nova-ui-preferences",
+                android.content.Context.MODE_PRIVATE,
+            ).getBoolean("notifications-enabled", true),
+        )
+    }
     var displayName by rememberSaveable(state.user?.displayName) {
         mutableStateOf(state.user?.displayName ?: state.user?.display_name ?: "")
     }
@@ -375,6 +388,70 @@ fun SettingsScreen(
                 }
                 state.error?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+
+                Text("المظهر وتجربة العرض", style = MaterialTheme.typography.titleLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = !isLightTheme,
+                        onClick = { onThemeChanged(false) },
+                        label = { Text("المظهر الداكن") },
+                    )
+                    FilterChip(
+                        selected = isLightTheme,
+                        onClick = { onThemeChanged(true) },
+                        label = { Text("المظهر الفاتح") },
+                    )
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("إشعارات التطبيق", fontWeight = FontWeight.Bold)
+                            Text(
+                                "حفظ تفضيل الإشعارات على هذا الجهاز",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = notificationsEnabled,
+                            onCheckedChange = { enabled ->
+                                notificationsEnabled = enabled
+                                context.getSharedPreferences(
+                                    "nova-ui-preferences",
+                                    android.content.Context.MODE_PRIVATE,
+                                ).edit().putBoolean("notifications-enabled", enabled).apply()
+                            },
+                        )
+                    }
+                }
+                Text("Anime NOVA", style = MaterialTheme.typography.titleLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = onReplaySplash,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("شاشة الإقلاع")
+                    }
+                    OutlinedButton(
+                        onClick = onOpenTelegramModal,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("القناة الرسمية")
+                    }
                 }
 
                 // Account & Profile Section

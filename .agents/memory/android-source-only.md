@@ -3,8 +3,8 @@ name: Original Android source scope
 description: The user's standing rule for modifying Anime NOVA in this repository.
 ---
 
-For Anime NOVA, work in the existing native Android project and preserve its current app, features, identity, navigation, server connection, and Rift Player. Do not create a parallel app, web imitation, or simplified substitute. Screenshots are visual references, not proof that their implementation exists in the Android module.
+For Anime NOVA, use WebView build #4 as the sole feature and UI reference. Rebuild its behavior in the existing native Kotlin, Jetpack Compose, and AndroidX Media3 app; do not add a WebView or use any other build as the specification. Preserve the native app's identity, navigation, server connection, and Rift Player. If the API lacks a capability, disclose that limitation rather than presenting mock data as real.
 
-**Why:** The user repeated that the complete target already exists and objected when a new Manga screen was started from assumptions about missing native routes.
+**Why:** The user explicitly chose the WebView build #4 as the required reference and requested a native implementation with its full feature set.
 
-**How to apply:** Before editing, locate and inspect the actual Android source and verify the requested feature there. If the source cannot be located in the checked-out repository, stop and ask for its exact branch or directory rather than recreating it.
+**How to apply:** Compare the selected WebView build's screens and interactions with the checked-out Android source, then port gaps into the existing native app. Do not infer features from other builds.

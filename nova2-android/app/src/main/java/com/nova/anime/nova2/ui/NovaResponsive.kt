@@ -203,6 +203,7 @@ fun NovaDrawerContent(
         NovaNavItem("مدبلج", Icons.Default.Tv),
         NovaNavItem("أنيميشن", Icons.Default.Movie),
         NovaNavItem("ستارديما", Icons.Default.Star),
+        NovaNavItem("الإحصائيات العالمية", Icons.Default.Star),
         NovaNavItem("جدول البث", Icons.Default.CalendarMonth),
         NovaNavItem("الأخبار", Icons.Default.Newspaper),
         NovaNavItem("مكتبتي", Icons.Default.Bookmark),
@@ -282,8 +283,8 @@ fun NovaBottomNavigation(
     )
     Surface(
         shape = RoundedCornerShape(22.dp),
-        color = Color(0xF20D111A),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = .14f)),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = .96f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         shadowElevation = 10.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
@@ -333,13 +334,17 @@ private fun NovaNavButton(
                 .width(20.dp)
                 .height(3.dp)
                 .clip(RoundedCornerShape(999.dp))
-                .background(if (active || (focused && tv)) Color.White else Color.Transparent),
+                .background(
+                    if (active || (focused && tv)) MaterialTheme.colorScheme.onSurface
+                    else Color.Transparent,
+                ),
         )
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = if (active || (focused && tv)) Color.White.copy(alpha = .14f) else Color.Transparent,
+            color = if (active || (focused && tv)) MaterialTheme.colorScheme.onSurface.copy(alpha = .10f)
+            else Color.Transparent,
             border = if (active || (focused && tv)) {
-                BorderStroke(1.dp, Color.White.copy(alpha = .28f))
+                BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .22f))
             } else {
                 null
             },
@@ -351,7 +356,8 @@ private fun NovaNavButton(
                 Icon(
                     item.icon,
                     contentDescription = item.label,
-                    tint = if (active || focused) Color.White else Color(0xFF94A3B8),
+                    tint = if (active || focused) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(if (tv) 23.dp else 19.dp),
                 )
             }
@@ -360,7 +366,8 @@ private fun NovaNavButton(
             item.label,
             fontSize = if (tv) 14.sp else 10.5.sp,
             fontWeight = if (active || focused) FontWeight.Black else FontWeight.Bold,
-            color = if (active || focused) Color.White else Color(0xFF94A3B8),
+            color = if (active || focused) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
